@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { extractPages } from '@/lib/extractPdf';
-import { buildKardex } from '@/lib/parseKardex';
+import { buildKardex }  from '@/lib/parseKardex';
+import { parseSigaPages }             from '@/lib/parsers/kardex-siga.parser';
+import { detectKardexFormatFromPages } from '@/lib/parsers/kardex-format-detector';
 
 // pdf.js necesita el runtime de Node (Buffer/Uint8Array), no Edge.
 export const runtime = 'nodejs';
@@ -11,6 +13,10 @@ export const dynamic = 'force-dynamic';
  * Acepta el PDF de dos formas:
  *   1) multipart/form-data, en el campo `file` (o `archivo` / `pdf`).
  *   2) El binario del PDF directo en el body con Content-Type: application/pdf.
+ *
+ * extractPages() se llama UNA SOLA VEZ por request. pdfjs-dist transfiere
+ * el ArrayBuffer al Worker en esa primera llamada, dejándolo detached; llamarlo
+ * de nuevo con el mismo buffer produce DataCloneError.
  *
  * Responde con el Kardex en JSON: { estudiante, materias, resumenCreditos, totalMaterias }.
  */
@@ -48,18 +54,37 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Archivo vacío.' }, { status: 400 });
     }
 
+    // Extraer páginas UNA sola vez — el ArrayBuffer queda detached tras esta llamada.
     const paginas = await extractPages(bytes);
-    const kardex = buildKardex(paginas);
 
-    // Si no se reconoció nada, probablemente no es un Kardex de la UdeG.
-    if (!kardex.estudiante.codigo && kardex.materias.length === 0) {
+    // Detectar formato a partir de las páginas ya extraídas (sin re-extraer).
+    const formato = detectKardexFormatFromPages(paginas);
+
+    if (formato === 'desconocido') {
       return NextResponse.json(
-        { error: 'No se pudo interpretar el PDF como un Kardex de la UdeG (SIIAU).' },
+        {
+          error:
+            'No se pudo identificar el formato del Kardex. ' +
+            'Asegúrate de que sea un Kardex de la UdeG emitido por SIIAU o SIGA/CUCEI.',
+          formato: 'desconocido',
+        },
         { status: 422 },
       );
     }
 
-    return NextResponse.json(kardex, { status: 200 });
+    // Parsear con el parser correspondiente usando las páginas ya extraídas.
+    const kardex = formato === 'siga-cucei'
+      ? parseSigaPages(paginas)
+      : buildKardex(paginas);
+
+    if (!kardex.estudiante.codigo && kardex.materias.length === 0) {
+      return NextResponse.json(
+        { error: 'No se pudo interpretar el PDF como un Kardex de la UdeG (SIIAU o SIGA).' },
+        { status: 422 },
+      );
+    }
+
+    return NextResponse.json({ ...kardex, _formato: formato }, { status: 200 });
   } catch (err) {
     console.error('Error en /api/kardex:', err);
     return NextResponse.json(
@@ -72,9 +97,10 @@ export async function POST(req: NextRequest) {
 /** GET /api/kardex — información de uso. */
 export async function GET() {
   return NextResponse.json({
-    nombre: 'API Kardex UdeG',
-    metodo: 'POST',
+    nombre:   'API Kardex UdeG',
+    metodo:   'POST',
+    formatos: ['SIIAU (Oracle Reports)', 'SIGA/CUCEI'],
     uso: "POST /api/kardex con el PDF en multipart/form-data (campo 'file') o con Content-Type: application/pdf en el body.",
-    devuelve: ['estudiante', 'materias', 'resumenCreditos', 'totalMaterias'],
+    devuelve: ['estudiante', 'materias', 'resumenCreditos', 'totalMaterias', '_formato'],
   });
 }

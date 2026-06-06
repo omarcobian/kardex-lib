@@ -40,6 +40,8 @@ export interface Materia {
   fecha: string;
   /** Todos los intentos en orden cronológico (>1 cuando hubo recursamiento/extraordinario). */
   intentos: Intento[];
+  /** Solo presente en el formato SIGA: true para materias de la sección "CURSOS SIN ÁREA DE ESTUDIOS". */
+  sinAreaEstudios?: boolean;
 }
 
 /** Renglón del resumen de créditos por área de estudios. */
