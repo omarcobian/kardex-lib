@@ -3,140 +3,195 @@
   "equivalencias": [
     {
       "origen": { "clave": "I5882", "nombre": "Programación", "creditos": 8 },
-      "destino": { "clave": "I5288", "nombre": "Fundamentos de Programación", "creditos": 8 }
+      "destino": { "clave": "I5288", "nombre": "Fundamentos de programación", "creditos": 8 }
+    },
+    {
+      "origen": { "clave": "I5883", "nombre": "Seminario de solución de problemas de Programación", "creditos": 5 },
+      "destino": { "clave": "V0716", "nombre": "Programación estructurada", "creditos": 8 }
+    },
+    {
+      "origen": { "clave": "I5893", "nombre": "Métodos Matemáticos I", "creditos": 8 },
+      "destino": { "clave": "V0710", "nombre": "Cálculo diferencial e integral", "creditos": 8 }
+    },
+    {
+      "origen": { "clave": "I5894", "nombre": "Seminario de solución de problemas de Métodos Matemáticos I", "creditos": 5 },
+      "destino": { "clave": "IG738", "nombre": "Precálculo", "creditos": 8 }
     },
     {
       "origen": { "clave": "I7590", "nombre": "Anatomía Mecánica I", "creditos": 8 },
       "destino": { "clave": "V5901", "nombre": "Anatomía", "creditos": 8 }
     },
     {
+      "origen": { "clave": "GLP", "nombre": "Análisis de problemas globales del siglo XX", "creditos": 0 },
+      "destino": { "clave": "GLP", "nombre": "Análisis de problemas globales del siglo XX", "creditos": 0 }
+    },
+    {
+      "origen": { "clave": "I5895", "nombre": "Métodos Matemáticos II", "creditos": 8 },
+      "destino": { "clave": "V0712", "nombre": "Ecuaciones diferenciales", "creditos": 8 }
+    },
+    {
       "origen": { "clave": "I7592", "nombre": "Anatomía Mecánica II", "creditos": 8 },
       "destino": { "clave": "V2243", "nombre": "Biomecánica", "creditos": 8 }
     },
     {
-      "origen": { "clave": "I5893", "nombre": "Métodos Matemáticos I", "creditos": 8 },
-      "destino": { "clave": "V0710", "nombre": "Cálculo Diferencial e Integral", "creditos": 8 }
-    },
-    {
-      "origen": { "clave": "I5895", "nombre": "Métodos Matemáticos II", "creditos": 8 },
-      "destino": { "clave": "V0712", "nombre": "Ecuaciones Diferenciales", "creditos": 8 }
-    },
-    {
-      "origen": { "clave": "I7602", "nombre": "Instalaciones y Seguridad Radiológica", "creditos": 8 },
-      "destino": { "clave": "V5900", "nombre": "Legislación y Seguridad Hospitalaria", "creditos": 10 }
-    },
-    {
-      "origen": { "clave": "I5897", "nombre": "Estadística y Procesos Estocásticos", "creditos": 8 },
-      "destino": { "clave": "V5907", "nombre": "Estadística Experimental", "creditos": 8 }
-    },
-    {
-      "origen": { "clave": "I7605", "nombre": "Instrumentación Diagnóstica y Terapéutica", "creditos": 8 },
-      "destino": { "clave": "V5910", "nombre": "Tecnologías Médicas", "creditos": 8 }
+      "origen": { "clave": "I7603", "nombre": "Instrumentación e Instalación Hospitalaria", "creditos": 8 },
+      "destino": { "clave": "V5904", "nombre": "Instrumentación e instalación hospitalaria", "creditos": 8 }
     },
     {
       "origen": { "clave": "I7587", "nombre": "Circuitos Eléctricos", "creditos": 8 },
-      "destino": { "clave": "V5902", "nombre": "Circuitos Eléctricos", "creditos": 8 }
+      "destino": { "clave": "V5902", "nombre": "Circuitos eléctricos", "creditos": 8 }
     },
     {
-      "origen": { "clave": "I7607", "nombre": "Acondicionamiento de Bioseñales y Bioimágenes", "creditos": 8 },
-      "destino": { "clave": "V5909", "nombre": "Señales y Sistemas Robóticos", "creditos": 8 }
+      "origen": { "clave": "I7020", "nombre": "Métodos Matemáticos III", "creditos": 8 },
+      "destino": { "clave": "B056", "nombre": "Álgebra lineal", "creditos": 8 }
     },
     {
-      "origen": { "clave": "I7603", "nombre": "Instrumentación e Instalación Hospitalaria", "creditos": 8 },
-      "destino": { "clave": "V5904", "nombre": "Instrumentación e Instalación Hospitalaria", "creditos": 8 }
-    },
-    {
-      "origen": { "clave": "I7608", "nombre": "Procesamiento de Bioseñales", "creditos": 8 },
-      "destino": { "clave": "V5913", "nombre": "Procesamiento de Bioseñales", "creditos": 8 }
-    },
-    {
-      "origen": { "clave": "I7609", "nombre": "Procesamiento de Bioimágenes", "creditos": 8 },
-      "destino": { "clave": "V5914", "nombre": "Procesamiento de Bioimágenes", "creditos": 8 }
+      "origen": { "clave": "I7605", "nombre": "Instrumentación Diagnóstica y Terapéutica", "creditos": 8 },
+      "destino": { "clave": "V5910", "nombre": "Tecnologías médicas", "creditos": 8 }
     },
     {
       "origen": { "clave": "I7604", "nombre": "Instrumentación e Instalación Quirúrgica", "creditos": 8 },
-      "destino": { "clave": "V5917", "nombre": "Gestión e Instrumentación Biomédica", "creditos": 8 }
+      "destino": { "clave": "V5917", "nombre": "Gestión e instrumentación biomédica", "creditos": 8 }
     },
     {
-      "origen": { "clave": "I7596", "nombre": "Electrofisiología Molecular I", "creditos": 8 },
-      "destino": { "clave": "V5911", "nombre": "Fisiología y Fisiopatología", "creditos": 10 }
+      "origen": { "clave": "I7598", "nombre": "Dispositivos Electrónicos", "creditos": 8 },
+      "destino": { "clave": "V5945", "nombre": "Dispositivos usables y vestibles", "creditos": 8 }
     },
     {
-      "origen": { "clave": "I7597", "nombre": "Electrofisiología Molecular II", "creditos": 8 },
-      "destino": { "clave": "V5912", "nombre": "Electrofisiología y Neurociencias", "creditos": 10 }
-    },
-    {
-      "origen": { "clave": "I7595", "nombre": "Biosensores y Transductores", "creditos": 8 },
-      "destino": { "clave": "V5916", "nombre": "Biosensores y Transductores", "creditos": 8 }
-    },
-    {
-      "origen": { "clave": "I7266", "nombre": "Programación de Sistemas Embebidos", "creditos": 8 },
-      "destino": { "clave": "V5915", "nombre": "Comunicación y Control de Sistemas Embebidos", "creditos": 8 }
-    },
-    {
-      "origen": { "clave": "I7610", "nombre": "Prótesis y Órtesis", "creditos": 8 },
-      "destino": { "clave": "V5931", "nombre": "Prótesis y Órtesis", "creditos": 8 }
+      "origen": { "clave": "I5897", "nombre": "Estadística y Procesos Estocásticos", "creditos": 8 },
+      "destino": { "clave": "V5907", "nombre": "Estadística experimental", "creditos": 8 }
     },
     {
       "origen": { "clave": "I7588", "nombre": "Análisis del Movimiento", "creditos": 8 },
-      "destino": { "clave": "V5930", "nombre": "Análisis del Movimiento", "creditos": 8 }
+      "destino": { "clave": "V5930", "nombre": "Análisis del movimiento", "creditos": 8 }
     },
     {
-      "origen": { "clave": "I7601", "nombre": "Imagenología Médica", "creditos": 8 },
-      "destino": { "clave": "V5939", "nombre": "Conectividad Cerebral", "creditos": 8 }
+      "origen": { "clave": "I7266", "nombre": "Programación de Sistemas Embebidos", "creditos": 8 },
+      "destino": { "clave": "V5915", "nombre": "Comunicación y control de sistemas embebidos", "creditos": 8 }
     },
     {
-      "origen": { "clave": "I7600", "nombre": "Sistemas Electrónicos", "creditos": 8 },
-      "destino": { "clave": "V3929", "nombre": "Electrónica Digital", "creditos": 8 }
+      "origen": { "clave": "I7602", "nombre": "Instalaciones y Seguridad Radiológica", "creditos": 8 },
+      "destino": { "clave": "V5900", "nombre": "Legislación y seguridad hospitalaria", "creditos": 10 }
+    },
+    {
+      "origen": { "clave": "I7595", "nombre": "Biosensores y Transductores", "creditos": 8 },
+      "destino": { "clave": "V5916", "nombre": "Biosensores y transductores", "creditos": 8 }
+    },
+    {
+      "origen": { "clave": "I7610", "nombre": "Prótesis y Órtesis", "creditos": 8 },
+      "destino": { "clave": "V5931", "nombre": "Prótesis y órtesis", "creditos": 8 }
     },
     {
       "origen": { "clave": "I7606", "nombre": "Instrumentación y Técnicas de Rehabilitación", "creditos": 8 },
       "destino": { "clave": "V5932", "nombre": "Rehabilitación", "creditos": 8 }
     },
     {
-      "origen": { "clave": "I7598", "nombre": "Dispositivos Electrónicos", "creditos": 8 },
-      "destino": { "clave": "V5945", "nombre": "Dispositivos Usables y Vestibles", "creditos": 8 }
-    },
-    {
-      "origen": { "clave": "PRAC",  "nombre": "Carta de Liberación de Prácticas Profesionales", "creditos": 0 },
-      "destino": { "clave": "PRACLIB", "nombre": "Prácticas Profesionales", "creditos": 20 }
-    },
-    {
-      "origen": { "clave": "PROY1C", "nombre": "Proyecto de Instrumentación Médica (Documentación+Defensa)", "creditos": 15, "_nota": "Tres etapas del proyecto INBI se fusionan en dos seminarios LIB" },
-      "destino": { "clave": "V3660", "nombre": "Seminario de Integración: Protocolo + Lab Abierto: Diseño", "creditos": 7 }
-    },
-    {
-      "origen": { "clave": "PROY2C", "nombre": "Proyecto de Biomecánica Humana (Documentación+Defensa)", "creditos": 15 },
-      "destino": { "clave": "V3659", "nombre": "Seminario de Integración: Desarrollo + Lab Abierto: Construcción", "creditos": 9 }
-    },
-    {
-      "origen": { "clave": "PROY3C", "nombre": "Proyecto de Electrofisiología (Documentación+Defensa)", "creditos": 15 },
-      "destino": { "clave": "V3658", "nombre": "Seminario de Integración: Comunicación + Lab Abierto: Pruebas", "creditos": 7 }
+      "origen": { "clave": "I7596", "nombre": "Electrofisiología Molecular I", "creditos": 8 },
+      "destino": { "clave": "V5911", "nombre": "Fisiología y fisiopatología", "creditos": 10 }
     },
     {
       "origen": { "clave": "I7594", "nombre": "Biomateriales", "creditos": 8 },
-      "destino": { "clave": "V3865", "nombre": "Biointegración de Materiales", "creditos": 8 }
+      "destino": { "clave": "V3865", "nombre": "Biointegración de materiales", "creditos": 8 }
     },
     {
-      "origen": { "clave": "I5883", "nombre": "Seminario SSP de Programación", "creditos": 5 },
-      "destino": { "clave": "V0716", "nombre": "Programación Estructurada", "creditos": 8 }
+      "origen": { "clave": "I7601", "nombre": "Imagenología Médica", "creditos": 8 },
+      "destino": { "clave": "V5939", "nombre": "Conectividad cerebral", "creditos": 8 }
     },
     {
-      "origen": { "clave": "I5893", "nombre": "Métodos Matemáticos I (SSP)", "creditos": 5, "_clave_ssp": "I5894" },
-      "destino": { "clave": "IG738", "nombre": "Precálculo", "creditos": 8 }
+      "origen": { "clave": "I7600", "nombre": "Sistemas Electrónicos", "creditos": 8 },
+      "destino": { "clave": "V3929", "nombre": "Electrónica digital", "creditos": 8 }
     },
     {
-      "origen": { "clave": "I5895", "nombre": "Métodos Matemáticos II (SSP)", "creditos": 5, "_clave_ssp": "I5896" },
-      "destino": { "clave": "B056", "nombre": "Álgebra Lineal", "creditos": 8 }
+      "origen": { "clave": "I7597", "nombre": "Electrofisiología Molecular II", "creditos": 8 },
+      "destino": { "clave": "V5912", "nombre": "Electrofisiología y neurociencias", "creditos": 10 }
+    },
+    {
+      "origen": { "clave": "I7607", "nombre": "Acondicionamiento de Bioseñales y Bioimágenes", "creditos": 8 },
+      "destino": { "clave": "V5909", "nombre": "Señales y sistemas robóticos", "creditos": 8 }
+    },
+    {
+      "origen": { "clave": "PROYIM", "nombre": "Proyecto de Instrumentación Médica", "creditos": 15 },
+      "destino": [
+        { "clave": "V3660", "nombre": "Seminario de integración: Protocolo", "creditos": 4 },
+        { "clave": "V5925", "nombre": "Laboratorio Abierto: Diseño", "creditos": 3 }
+      ],
+      "_nota": "Solo se convalida si los tres proyectos INBI están aprobados"
+    },
+    {
+      "origen": { "clave": "PROYBH", "nombre": "Proyecto de Biomecánica Humana", "creditos": 15 },
+      "destino": [
+        { "clave": "V3659", "nombre": "Seminario de integración: Desarrollo", "creditos": 6 },
+        { "clave": "V5926", "nombre": "Laboratorio Abierto: Construcción", "creditos": 3 }
+      ],
+      "_nota": "Solo se convalida si los tres proyectos INBI están aprobados"
+    },
+    {
+      "origen": { "clave": "PROYEF", "nombre": "Proyecto de Electrofisiologia", "creditos": 15 },
+      "destino": [
+        { "clave": "V3658", "nombre": "Seminario de integración: Comunicación", "creditos": 4 },
+        { "clave": "V5927", "nombre": "Laboratorio Abierto: Pruebas", "creditos": 3 }
+      ],
+      "_nota": "Solo se convalida si los tres proyectos INBI están aprobados. También convalida Proyecto modular."
+    },
+    {
+      "origen": { "clave": "I7608", "nombre": "Procesamiento de Bioseñales", "creditos": 8 },
+      "destino": { "clave": "V5913", "nombre": "Procesamiento de bioseñales", "creditos": 8 }
+    },
+    {
+      "origen": { "clave": "I7609", "nombre": "Procesamiento de Bioimágenes", "creditos": 8 },
+      "destino": { "clave": "V5914", "nombre": "Procesamiento de bioimágenes", "creditos": 8 }
+    },
+    {
+      "origen": { "clave": "PRAC", "nombre": "Carta de Liberación de Prácticas Profesionales o Comprobantes de experiencia profesional (320 Hrs)", "creditos": 0 },
+      "destino": { "clave": "PRACLIB", "nombre": "Practicas profesionales", "creditos": 20 }
+    },
+    {
+      "origen": { "clave": "TSIBM", "nombre": "Temas Selectos de Ingeniería Biomédica I", "creditos": 0 },
+      "destino": { "clave": "V5908", "nombre": "Procesos y organización biológica", "creditos": 8 }
+    },
+    {
+      "origen": { "clave": "TIBM4", "nombre": "Topicos de Ingeniería Biomédica IV", "creditos": 0 },
+      "destino": { "clave": "IL361", "nombre": "Fundamentos de inteligencia artificial", "creditos": 8 }
+    },
+    {
+      "origen": { "clave": "IMED4", "nombre": "Instrumentación Médica IV", "creditos": 0 },
+      "destino": { "clave": "V5918", "nombre": "Tecnología de la información en salud", "creditos": 8 }
+    },
+    {
+      "origen": { "clave": "TIBM", "nombre": "Topicos de Ingeniería Biomédica", "creditos": 0 },
+      "destino": { "clave": "ESBIO", "nombre": "Estructuras de los sistemas biológicos", "creditos": 8 }
+    },
+    {
+      "origen": { "clave": "IMED2", "nombre": "Instrumentación Médica II", "creditos": 0 },
+      "destino": { "clave": "REGBM", "nombre": "Regulación de biomateriales", "creditos": 8 }
+    }
+  ],
+  "equivalencias_especiales": [
+    {
+      "_nota": "Si el alumno tiene AMBOS seminarios de Anatomía Mecánica (I y II), se convalida Fundamentos de física",
+      "origen": [
+        { "clave": "I7591", "nombre": "Seminario de solución de problemas de Anatomía Mecánica I", "creditos": 5 },
+        { "clave": "I7593", "nombre": "Seminario de solución de problemas de Anatomía Mecánica II", "creditos": 5 }
+      ],
+      "destino": { "clave": "IL340", "nombre": "Fundamentos de física", "creditos": 8 }
+    },
+    {
+      "_nota": "Si el alumno tiene los tres proyectos INBI, también se convalida Proyecto modular en LIB",
+      "origen": [
+        { "clave": "PROYIM", "nombre": "Proyecto de Instrumentación Médica", "creditos": 15 },
+        { "clave": "PROYBH", "nombre": "Proyecto de Biomecánica Humana", "creditos": 15 },
+        { "clave": "PROYEF", "nombre": "Proyecto de Electrofisiologia", "creditos": 15 }
+      ],
+      "destino": { "clave": "PROYMOD", "nombre": "Proyecto modular", "creditos": 3 }
     }
   ],
   "sin_equivalencia": [
-    { "clave": "I7020", "nombre": "Métodos Matemáticos III", "creditos": 8, "razon": "Sin materia equivalente en LIB" },
-    { "clave": "I7599", "nombre": "Electrónica Integrada", "creditos": 8, "razon": "Sin materia equivalente en LIB" },
-    { "clave": "I7021", "nombre": "Seminario SSP de Métodos Matemáticos III", "creditos": 5, "razon": "Sin equivalente" },
-    { "clave": "I7589", "nombre": "Seminario SSP de Análisis del Movimiento", "creditos": 5, "razon": "Sin equivalente" },
-    { "clave": "I7267", "nombre": "Seminario SSP de Programación de Sistemas Embebidos", "creditos": 5, "razon": "Sin equivalente" },
-    { "clave": "I7591", "nombre": "Seminario SSP de Anatomía Mecánica I", "creditos": 5, "razon": "Sin equivalente" },
-    { "clave": "I7593", "nombre": "Seminario SSP de Anatomía Mecánica II", "creditos": 5, "razon": "Sin equivalente" }
+    { "clave": "I5896", "nombre": "Seminario de solución de problemas de Métodos Matemáticos II", "creditos": 5, "razon": "Sin equivalente en LIB" },
+    { "clave": "I7021", "nombre": "Seminario de solución de problemas de Métodos Matemáticos III", "creditos": 5, "razon": "Sin equivalente en LIB" },
+    { "clave": "I7599", "nombre": "Electrónica Integrada", "creditos": 8, "razon": "Sin equivalente en LIB" },
+    { "clave": "I7589", "nombre": "Seminario de solución de problemas de Análisis del Movimiento", "creditos": 5, "razon": "Sin equivalente en LIB" },
+    { "clave": "I7267", "nombre": "Seminario de solución de problemas de Programación de Sistemas Embebidos", "creditos": 5, "razon": "Sin equivalente en LIB" },
+    { "clave": "FOPTA", "nombre": "Formación Optativa abierta", "creditos": 16, "razon": "Sin equivalente en LIB" },
+    { "clave": "FESPE", "nombre": "Formación Especializante selectiva", "creditos": 16, "razon": "Sin equivalente en LIB" }
   ]
 }
