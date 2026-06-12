@@ -16,9 +16,16 @@ import type { Kardex } from '@/lib/types';
 
 type PlanMateria = { clave: string; nombre: string; creditos: number; semestre: number };
 
+type Destino = { clave: string; nombre: string; creditos: number };
+
 type EquivalenciaEntry = {
   origen: { clave: string; nombre: string; creditos: number; _clave_ssp?: string };
-  destino: { clave: string; nombre: string; creditos: number };
+  destino: Destino | Destino[];
+};
+
+type EquivalenciaEspecial = {
+  origen: { clave: string; nombre: string; creditos: number }[];
+  destino: Destino;
 };
 
 type SinEquivalencia = { clave: string; nombre: string; creditos: number; razon: string };
@@ -29,6 +36,7 @@ type PlanData = {
   equivalencias: {
     descripcion: string;
     equivalencias: EquivalenciaEntry[];
+    equivalencias_especiales: EquivalenciaEspecial[];
     sin_equivalencia: SinEquivalencia[];
   };
 };
@@ -79,6 +87,31 @@ function calcularFilas(kardex: Kardex | null, planData: PlanData): TablaRow[] {
   // Track which LIB claves get covered by an equivalencia
   const libCubiertasClaves = new Set<string>();
 
+  // Origen claves ya resueltos por una equivalencia especial (no deben
+  // evaluarse de nuevo en el recorrido de "sin equivalencia").
+  const origenCubiertosPorEspecial = new Set<string>();
+
+  // Equivalencias especiales: requieren VARIOS orígenes (p.ej. dos seminarios)
+  // para convalidar un solo destino. Se evalúan primero.
+  for (const esp of eqData.equivalencias_especiales ?? []) {
+    const kms = esp.origen.map(o => kardexMap.get(o.clave));
+    if (kms.every((km): km is NonNullable<typeof km> => km != null)) {
+      rows.push({
+        estado: 'verde',
+        inbi: {
+          clave: esp.origen.map(o => o.clave).join(' + '),
+          nombre: esp.origen.map(o => o.nombre).join(' + '),
+          creditos: esp.origen.reduce((sum, o) => sum + o.creditos, 0),
+          calificacion: null,
+          nc: null,
+        },
+        lib: { clave: esp.destino.clave, nombre: esp.destino.nombre, creditos: esp.destino.creditos },
+      });
+      libCubiertasClaves.add(esp.destino.clave);
+      for (const o of esp.origen) origenCubiertosPorEspecial.add(o.clave);
+    }
+  }
+
   // Process each equivalencia pair
   for (const eq of eqData.equivalencias) {
     // _clave_ssp overrides the lookup clave when the INBI seminario has a separate code
@@ -86,14 +119,18 @@ function calcularFilas(kardex: Kardex | null, planData: PlanData): TablaRow[] {
     const km = kardexMap.get(lookupClave);
 
     if (km) {
-      // Credits differ → partial equivalence (amarillo); equal → direct (verde)
-      const estado: EstadoRow = eq.origen.creditos !== eq.destino.creditos ? 'amarillo' : 'verde';
-      rows.push({
-        estado,
-        inbi: { clave: km.clave, nombre: km.nombre, creditos: eq.origen.creditos, calificacion: km.calificacion, nc: km.nc },
-        lib: { clave: eq.destino.clave, nombre: eq.destino.nombre, creditos: eq.destino.creditos },
-      });
-      libCubiertasClaves.add(eq.destino.clave);
+      // Un origen puede convalidar uno o varios destinos (p.ej. los proyectos INBI).
+      const destinos = Array.isArray(eq.destino) ? eq.destino : [eq.destino];
+      for (const destino of destinos) {
+        // Credits differ → partial equivalence (amarillo); equal → direct (verde)
+        const estado: EstadoRow = eq.origen.creditos !== destino.creditos ? 'amarillo' : 'verde';
+        rows.push({
+          estado,
+          inbi: { clave: km.clave, nombre: km.nombre, creditos: eq.origen.creditos, calificacion: km.calificacion, nc: km.nc },
+          lib: { clave: destino.clave, nombre: destino.nombre, creditos: destino.creditos },
+        });
+        libCubiertasClaves.add(destino.clave);
+      }
     }
   }
 
@@ -116,6 +153,7 @@ function calcularFilas(kardex: Kardex | null, planData: PlanData): TablaRow[] {
       ...eqData.sin_equivalencia.map(s => s.clave),
     ]);
     for (const km of kardex.materias) {
+      if (origenCubiertosPorEspecial.has(km.clave)) continue;
       if (!todasOriginClaves.has(km.clave)) {
         rows.push({
           estado: 'rojo',
