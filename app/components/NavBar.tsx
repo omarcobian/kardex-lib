@@ -5,8 +5,9 @@ import { usePathname } from 'next/navigation';
 import type { CSSProperties } from 'react';
 
 const NAV_ITEMS = [
-  { href: '/kardex',      label: 'Extractor de Kardex' },
-  { href: '/cambio-plan', label: 'Igualdad Académica' },
+  { href: '/kardex',       label: 'Extractor de Kardex' },
+  { href: '/cambio-plan',  label: 'Igualdad Académica' },
+  { href: '/estadisticas', label: 'Panel de Seguimiento' },
 ];
 
 export default function NavBar() {

@@ -53,8 +53,12 @@ type ConteoStorage = {
   codigo_alumno: string;
   total: number;
   materias: string[];
+  ncContabilizados: number;
   timestamp: string;
 };
+
+// Máximo de créditos del plan LIB que se contabilizan por alumno en la igualdad académica.
+const MAX_NC_POR_ESTUDIANTE = 50;
 
 // ─── Color helpers ─────────────────────────────────────────────────────────────
 
@@ -190,6 +194,29 @@ function calcularPendientes(filas: TablaRow[], planData: PlanData): string[] {
     .map(m => m.nombre);
 }
 
+// Devuelve solo las materias que caben dentro del tope de MAX_NC_POR_ESTUDIANTE créditos,
+// tomándolas en el orden del plan LIB (por semestre).
+function calcularContabilizados(
+  filas: TablaRow[],
+  planData: PlanData,
+): { materias: string[]; nc: number } {
+  const cubiertasClaves = new Set<string>();
+  for (const f of filas) {
+    if (f.lib && (f.estado === 'verde' || f.estado === 'amarillo')) {
+      cubiertasClaves.add(f.lib.clave);
+    }
+  }
+  let nc = 0;
+  const materias: string[] = [];
+  for (const m of planData.planLib.materias) {
+    if (cubiertasClaves.has(m.clave)) continue;
+    if (nc >= MAX_NC_POR_ESTUDIANTE) break;
+    materias.push(m.nombre);
+    nc += m.creditos;
+  }
+  return { materias, nc };
+}
+
 // ─── LocalStorage helpers ──────────────────────────────────────────────────────
 
 function guardarConteo(conteo: ConteoStorage) {
@@ -236,43 +263,130 @@ async function generarPdfSolicitud(
   filas: TablaRow[],
   folio: number,
 ): Promise<Uint8Array> {
-  // Load the official letterhead PDF
   const res = await fetch('/api/hoja-membretada');
   if (!res.ok) throw new Error('No se pudo cargar la hoja membretada.');
   const hojaBytes = await res.arrayBuffer();
 
-  const doc = await PDFDocument.load(hojaBytes, { ignoreEncryption: true });
+  // Keep the letterhead as a template so we can clone it for each new page.
+  const template = await PDFDocument.load(hojaBytes, { ignoreEncryption: true });
+
+  const doc = await PDFDocument.create();
+  const [firstPage] = await doc.copyPages(template, [0]);
+  doc.addPage(firstPage);
+
   const helvetica = await doc.embedFont(StandardFonts.Helvetica);
   const helveticaBold = await doc.embedFont(StandardFonts.HelveticaBold);
 
-  const page = doc.getPage(0);
-  const { width: W, height: H } = page.getSize();
+  const { width: W, height: H } = doc.getPage(0).getSize();
 
   const LEFT = 70;
   const RIGHT = W - 65;
   const CONTENT_W = RIGHT - LEFT;
-  let y = H - 135; // Start below the letterhead area
 
-  const draw = (text: string, x: number, yPos: number, size = 9, bold = false) => {
-    page.drawText(text, {
-      x,
-      y: yPos,
-      size,
-      font: bold ? helveticaBold : helvetica,
-      color: rgb(0, 0, 0),
-    });
+  // y below which the footer graphic lives — never write past this boundary.
+  // Adjust this value if your footer is taller or shorter.
+  const FOOTER_LIMIT = 80;
+  const TOP_P1 = H - 135; // content start on page 1 (below full header)
+  const TOP_PN = H - 150; // content start on pages 2+ (extra top margin to clear the header)
+
+  // `page` is intentionally mutable so every helper always writes to the current page.
+  let page = doc.getPage(0);
+  let y = TOP_P1;
+
+  const draw = (text: string, x: number, yPos: number, size = 9, bold = false) =>
+    page.drawText(text, { x, y: yPos, size, font: bold ? helveticaBold : helvetica, color: rgb(0, 0, 0) });
+
+  const hline = (yPos: number, thickness: number, gray: number) =>
+    page.drawLine({ start: { x: LEFT, y: yPos }, end: { x: RIGHT, y: yPos }, thickness, color: rgb(gray, gray, gray) });
+
+  // Clone the letterhead template and start fresh at the top of the content area.
+  const addPage = async () => {
+    const [p] = await doc.copyPages(template, [0]);
+    doc.addPage(p);
+    page = doc.getPage(doc.getPageCount() - 1);
+    y = TOP_PN;
   };
+
+  // True when `needed` more points would bleed into the footer.
+  const needsBreak = (needed: number) => y - needed < FOOTER_LIMIT;
+
+  // ── Column geometry ────────────────────────────────────────────────────────
+
+  const COL_ASIG_W  = Math.floor(CONTENT_W * 0.28);
+  const COL_CLAVE_W = 48;
+  const COL_CALIF_W = 40;
+  const COL_NC_W    = 28;
+  const SEP_W       = 10;
+  const COL_ASIG2_W = Math.floor(CONTENT_W * 0.25);
+  const COL_CLAVE2_W = 48;
+
+  const xA1  = LEFT;
+  const xC1  = xA1  + COL_ASIG_W;
+  const xK1  = xC1  + COL_CLAVE_W;
+  const xN1  = xK1  + COL_CALIF_W;
+  const xSep = xN1  + COL_NC_W + 4;
+  const xA2  = xSep + SEP_W;
+  const xC2  = xA2  + COL_ASIG2_W;
+  const xK2  = xC2  + COL_CLAVE2_W;
+
+  const ROW_H  = 11;
+  const LINE_H = 8.5;
+
+  // Draws the two-row table header (panel labels + column names) at the current y
+  // and advances y past the bottom separator line.
+  const drawTableHeaders = () => {
+    hline(y + 10, 0.5, 0.5);
+    draw('INBI — Programa Origen', LEFT, y, 8, true);
+    draw('LIB — Programa Destino', xA2,  y, 8, true);
+    y -= ROW_H;
+
+    hline(y + 10, 0.3, 0.7);
+    draw('Asignatura', xA1, y, 7, true);
+    draw('Clave',      xC1, y, 7, true);
+    draw('Calif.',     xK1, y, 7, true);
+    draw('NC',         xN1, y, 7, true);
+    draw('Asignatura', xA2, y, 7, true);
+    draw('Clave',      xC2, y, 7, true);
+    draw('NC',         xK2, y, 7, true);
+    y -= ROW_H;
+
+    hline(y + 10, 0.5, 0.3);
+  };
+
+  // Word-wrap helper — unchanged logic.
+  const wrapText = (text: string, maxW: number, size: number, font: typeof helvetica): string[] => {
+    const maxLineW = maxW - 4;
+    const words = text.split(/\s+/).filter(Boolean);
+    const lines: string[] = [];
+    let actual = '';
+    for (const word of words) {
+      const tentativa = actual ? `${actual} ${word}` : word;
+      if (font.widthOfTextAtSize(tentativa, size) <= maxLineW) { actual = tentativa; continue; }
+      if (actual) lines.push(actual);
+      let resto = word;
+      while (font.widthOfTextAtSize(resto, size) > maxLineW && resto.length > 1) {
+        let i = resto.length - 1;
+        while (i > 1 && font.widthOfTextAtSize(resto.slice(0, i), size) > maxLineW) i--;
+        lines.push(resto.slice(0, i));
+        resto = resto.slice(i);
+      }
+      actual = resto;
+    }
+    if (actual) lines.push(actual);
+    return lines.length ? lines : [''];
+  };
+
+  // ── Page 1: folio, date, recipient, opening paragraph ─────────────────────
 
   const folioStr = `CUCEI/SAC/INBI/${folio}/2026`;
   const fechaStr = fechaEspanol();
 
-  // Folio — top right
   draw(folioStr, RIGHT - helveticaBold.widthOfTextAtSize(folioStr, 9), y, 9, true);
   y -= 12;
-  draw(`Guadalajara, Jal., ${fechaStr}`, RIGHT - helvetica.widthOfTextAtSize(`Guadalajara, Jal., ${fechaStr}`, 9), y, 9);
+  const fechaLine = `Guadalajara, Jal., ${fechaStr}`;
+  draw(fechaLine, RIGHT - helvetica.widthOfTextAtSize(fechaLine, 9), y, 9);
   y -= 22;
 
-  // Recipient
   draw('Ing. Edson Aldair Vital Díaz', LEFT, y, 9, true);
   y -= 12;
   draw('Coordinador de Control Escolar', LEFT, y, 9);
@@ -282,104 +396,77 @@ async function generarPdfSolicitud(
   draw('P R E S E N T E:', LEFT, y, 9, true);
   y -= 20;
 
-  // Body paragraph
-  const cuerpo1 = `Solicito su apoyo para realizar la igualdad académica para el estudiante de`;
-  const cuerpo2 = `Ingeniería Biomédica: ${kardex.estudiante.nombre ?? ''}, con código: ${kardex.estudiante.codigo ?? ''},`;
-  const cuerpo3 = `de las siguientes asignaturas:`;
-  for (const linea of [cuerpo1, cuerpo2, cuerpo3]) {
+  for (const linea of [
+    `Solicito su apoyo para realizar la igualdad académica para el estudiante de`,
+    `Ingeniería Biomédica: ${kardex.estudiante.nombre ?? ''}, con código: ${kardex.estudiante.codigo ?? ''},`,
+    `de las siguientes asignaturas:`,
+  ]) {
     draw(linea, LEFT, y, 9);
     y -= 13;
   }
   y -= 6;
 
-  // Table — only matched equivalencias (verde/amarillo rows)
+  // ── Equivalency table ──────────────────────────────────────────────────────
+
   const equivFilas = filas.filter(f => f.estado === 'verde' || f.estado === 'amarillo');
 
-  // Column layout
-  const COL_ASIG_W = Math.floor(CONTENT_W * 0.28);
-  const COL_CLAVE_W = 48;
-  const COL_CALIF_W = 40;
-  const COL_NC_W = 28;
-  const SEP_W = 10;
-  const COL_ASIG2_W = Math.floor(CONTENT_W * 0.25);
-  const COL_CLAVE2_W = 48;
-
-  const xA1 = LEFT;
-  const xC1 = xA1 + COL_ASIG_W;
-  const xK1 = xC1 + COL_CLAVE_W;
-  const xN1 = xK1 + COL_CALIF_W;
-  const xSep = xN1 + COL_NC_W + 4;
-  const xA2 = xSep + SEP_W;
-  const xC2 = xA2 + COL_ASIG2_W;
-  const xK2 = xC2 + COL_CLAVE2_W;
-
-  const ROW_H = 11;
-
-  // Panel headers
-  page.drawLine({ start: { x: LEFT, y: y + 10 }, end: { x: RIGHT, y: y + 10 }, thickness: 0.5, color: rgb(0.5, 0.5, 0.5) });
-  draw('INBI — Programa Origen', LEFT, y, 8, true);
-  draw('LIB — Programa Destino', xA2, y, 8, true);
-  y -= ROW_H;
-
-  page.drawLine({ start: { x: LEFT, y: y + 10 }, end: { x: RIGHT, y: y + 10 }, thickness: 0.3, color: rgb(0.7, 0.7, 0.7) });
-  draw('Asignatura', xA1, y, 7, true);
-  draw('Clave', xC1, y, 7, true);
-  draw('Calif.', xK1, y, 7, true);
-  draw('NC', xN1, y, 7, true);
-  draw('Asignatura', xA2, y, 7, true);
-  draw('Clave', xC2, y, 7, true);
-  draw('NC', xK2, y, 7, true);
-  y -= ROW_H;
-
-  page.drawLine({ start: { x: LEFT, y: y + 10 }, end: { x: RIGHT, y: y + 10 }, thickness: 0.5, color: rgb(0.3, 0.3, 0.3) });
-
-  // Helper to truncate text so it fits in a column
-  const truncate = (text: string, maxW: number, size: number, font: typeof helvetica) => {
-    let t = text;
-    while (t.length > 0 && font.widthOfTextAtSize(t, size) > maxW - 4) t = t.slice(0, -1);
-    return t === text ? t : t + '…';
-  };
+  // Need room for both header rows before even starting the table.
+  if (needsBreak(ROW_H * 2 + ROW_H)) await addPage();
+  drawTableHeaders();
 
   for (const row of equivFilas) {
-    const inbiNombre = truncate(row.inbi?.nombre ?? '', COL_ASIG_W, 7, helvetica);
-    const libNombre = truncate(row.lib?.nombre ?? '', COL_ASIG2_W, 7, helvetica);
+    const inbiLineas = wrapText(row.inbi?.nombre ?? '', COL_ASIG_W,  7, helvetica);
+    const libLineas  = wrapText(row.lib?.nombre  ?? '', COL_ASIG2_W, 7, helvetica);
+    const numLineas  = Math.max(inbiLineas.length, libLineas.length);
+    const rowH       = (numLineas - 1) * LINE_H + ROW_H;
 
-    draw(inbiNombre, xA1, y, 7);
-    draw(row.inbi?.clave ?? '', xC1, y, 7);
+    if (needsBreak(rowH + 2)) {
+      // Close the table on the current page, then continue on a fresh letterhead page.
+      hline(y + 9, 0.5, 0.3);
+      await addPage();
+      drawTableHeaders();
+    }
+
+    inbiLineas.forEach((l, i) => draw(l, xA1, y - i * LINE_H, 7));
+    libLineas.forEach( (l, i) => draw(l, xA2, y - i * LINE_H, 7));
+    draw(row.inbi?.clave        ?? '',                                  xC1, y, 7);
     draw(row.inbi?.calificacion != null ? String(row.inbi.calificacion) : '', xK1, y, 7);
-    draw(row.inbi?.nc != null ? String(row.inbi.nc) : '', xN1, y, 7);
-    draw(libNombre, xA2, y, 7);
-    draw(row.lib?.clave ?? '', xC2, y, 7);
-    draw(row.lib?.creditos != null ? String(row.lib.creditos) : '', xK2, y, 7);
+    draw(row.inbi?.nc           != null ? String(row.inbi.nc)           : '', xN1, y, 7);
+    draw(row.lib?.clave         ?? '',                                  xC2, y, 7);
+    draw(row.lib?.creditos      != null ? String(row.lib.creditos)      : '', xK2, y, 7);
 
-    y -= ROW_H;
-    page.drawLine({ start: { x: LEFT, y: y + 9 }, end: { x: RIGHT, y: y + 9 }, thickness: 0.2, color: rgb(0.85, 0.85, 0.85) });
+    y -= rowH;
+    hline(y + 9, 0.2, 0.85);
   }
 
-  page.drawLine({ start: { x: LEFT, y: y + 9 }, end: { x: RIGHT, y: y + 9 }, thickness: 0.5, color: rgb(0.3, 0.3, 0.3) });
+  hline(y + 9, 0.5, 0.3); // bottom table border
   y -= 18;
 
-  // Closing paragraph
-  const cierre = [
+  // ── Closing paragraph + signature — keep together if they fit ──────────────
+
+  const cierreLines = [
     'Las cuales están registradas en el kárdex de sus estudios previos en:',
     'Ingeniería Biomédica (INBI). Se anexa copia del kárdex del estudiante.',
     '',
     'Sin más por el momento agradezco su apoyo, y quedo atento para cualquier aclaración.',
   ];
-  for (const linea of cierre) {
-    if (linea) draw(linea, LEFT, y, 9);
-    y -= 13;
-  }
-  y -= 10;
-
-  // Signature block
-  const pie = [
+  const pieLines = [
     'Atentamente',
     'Piensa y Trabaja',
     '"40 años de la Feria Internacional del Libro de Guadalajara"',
     `Guadalajara, Jal., ${fechaStr}`,
   ];
-  for (const linea of pie) {
+  // Estimated height: 4 closing lines + gap + 4 signature lines
+  const closingH = (cierreLines.length + pieLines.length) * 13 + 20;
+  if (needsBreak(closingH)) await addPage();
+
+  for (const linea of cierreLines) {
+    if (linea) draw(linea, LEFT, y, 9);
+    y -= 13;
+  }
+  y -= 10;
+
+  for (const linea of pieLines) {
     draw(linea, LEFT, y, 9, linea === 'Atentamente' || linea === 'Piensa y Trabaja');
     y -= 13;
   }
@@ -414,6 +501,10 @@ export default function CambioPlan() {
   const filas: TablaRow[] = planData ? calcularFilas(kardex, planData) : [];
 
   const pendientes = planData && kardex ? calcularPendientes(filas, planData) : [];
+  const contabilizados = planData && kardex
+    ? calcularContabilizados(filas, planData)
+    : { materias: [], nc: 0 };
+  const contabilizadasSet = new Set(contabilizados.materias);
 
   // ── Kardex upload ─────────────────────────────────────────────────────────────
 
@@ -452,11 +543,12 @@ export default function CambioPlan() {
 
   const actualizarConteo = useCallback(() => {
     if (!kardex || !planData) return;
-    const pendientesList = calcularPendientes(filas, planData);
+    const { materias, nc } = calcularContabilizados(filas, planData);
     const conteo: ConteoStorage = {
       codigo_alumno: kardex.estudiante.codigo ?? '',
-      total: pendientesList.length,
-      materias: pendientesList,
+      total: materias.length,
+      materias,
+      ncContabilizados: nc,
       timestamp: new Date().toISOString(),
     };
     guardarConteo(conteo);
@@ -721,9 +813,12 @@ export default function CambioPlan() {
 
         {conteoPrevio && (
           <div style={{ background: '#fefce8', border: '1px solid #fde68a', borderRadius: 6, padding: '8px 12px', marginBottom: 14, fontSize: 12, color: '#854d0e' }}>
-            Conteo guardado anteriormente para el código <strong>{conteoPrevio.codigo_alumno}</strong>:{' '}
-            <strong>{conteoPrevio.total} materias pendientes</strong> —{' '}
-            {new Date(conteoPrevio.timestamp).toLocaleString('es-MX')}
+            Conteo guardado para <strong>{conteoPrevio.codigo_alumno}</strong>:{' '}
+            <strong>{conteoPrevio.total} materias</strong>
+            {conteoPrevio.ncContabilizados != null && (
+              <> · <strong>{conteoPrevio.ncContabilizados} NC</strong> (máx. {MAX_NC_POR_ESTUDIANTE} NC)</>
+            )}
+            {' '}— {new Date(conteoPrevio.timestamp).toLocaleString('es-MX')}
           </div>
         )}
 
@@ -731,17 +826,27 @@ export default function CambioPlan() {
           <p style={{ color: '#6b7280', fontSize: 13 }}>Sube un kardex para calcular las materias pendientes.</p>
         ) : (
           <>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginBottom: 14 }}>
+            {/* Contador principal — solo las materias contabilizadas (dentro del tope de NC) */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginBottom: 12, flexWrap: 'wrap' }}>
               <div style={{
-                background: pendientes.length === 0 ? '#d1fae5' : '#fee2e2',
-                border: `1px solid ${pendientes.length === 0 ? '#6ee7b7' : '#fca5a5'}`,
+                background: contabilizados.materias.length === 0 ? '#d1fae5' : '#fee2e2',
+                border: `1px solid ${contabilizados.materias.length === 0 ? '#6ee7b7' : '#fca5a5'}`,
                 borderRadius: 8,
                 padding: '10px 18px',
                 fontWeight: 700,
                 fontSize: 18,
-                color: pendientes.length === 0 ? '#065f46' : '#991b1b',
+                color: contabilizados.materias.length === 0 ? '#065f46' : '#991b1b',
               }}>
-                {pendientes.length} materias pendientes por cursar
+                {contabilizados.materias.length} materias contabilizadas
+              </div>
+              <div style={{ fontSize: 13, color: '#374151' }}>
+                <span style={{ fontWeight: 700 }}>{contabilizados.nc}</span>
+                <span style={{ color: '#6b7280' }}> / {MAX_NC_POR_ESTUDIANTE} NC máx. por alumno</span>
+                {pendientes.length > contabilizados.materias.length && (
+                  <span style={{ marginLeft: 8, color: '#9ca3af', fontSize: 12 }}>
+                    (+{pendientes.length - contabilizados.materias.length} fuera del tope)
+                  </span>
+                )}
               </div>
               <button
                 onClick={actualizarConteo}
@@ -762,20 +867,29 @@ export default function CambioPlan() {
 
             {pendientes.length > 0 && (
               <div style={{ columns: 2, columnGap: 24 }}>
-                {pendientes.map((m, i) => (
-                  <div key={i} style={{
-                    fontSize: 12,
-                    padding: '4px 0',
-                    borderBottom: '1px solid #f3f4f6',
-                    breakInside: 'avoid',
-                    display: 'flex',
-                    alignItems: 'flex-start',
-                    gap: 6,
-                  }}>
-                    <span style={{ color: '#ef4444', fontWeight: 700, flexShrink: 0 }}>•</span>
-                    {m}
-                  </div>
-                ))}
+                {pendientes.map((m, i) => {
+                  const contabilizada = contabilizadasSet.has(m);
+                  return (
+                    <div key={i} style={{
+                      fontSize: 12,
+                      padding: '4px 0',
+                      borderBottom: '1px solid #f3f4f6',
+                      breakInside: 'avoid',
+                      display: 'flex',
+                      alignItems: 'flex-start',
+                      gap: 6,
+                      opacity: contabilizada ? 1 : 0.45,
+                    }}>
+                      <span style={{ color: contabilizada ? '#ef4444' : '#9ca3af', fontWeight: 700, flexShrink: 0 }}>•</span>
+                      <span>{m}</span>
+                      {!contabilizada && (
+                        <span style={{ fontSize: 10, color: '#9ca3af', whiteSpace: 'nowrap', marginLeft: 'auto', flexShrink: 0 }}>
+                          fuera del tope
+                        </span>
+                      )}
+                    </div>
+                  );
+                })}
               </div>
             )}
           </>
@@ -834,16 +948,16 @@ export default function CambioPlan() {
               </div>
             </div>
 
-            {/* Semestres estimados */}
+            {/* Créditos contabilizados y semestres estimados */}
             {(() => {
-              const ncPendiente = filas
-                .filter(f => f.estado === 'gris' && f.lib)
-                .reduce((sum, f) => sum + (f.lib?.creditos ?? 0), 0);
-              const ncPorSemestre = 48; // approx NC per semester
-              const semestresEst = ncPendiente > 0 ? Math.ceil(ncPendiente / ncPorSemestre) : 0;
+              const ncPorSemestre = 48;
+              const semestresEst = contabilizados.nc > 0 ? Math.ceil(contabilizados.nc / ncPorSemestre) : 0;
               return (
                 <p style={{ fontSize: 12, color: '#0369a1', margin: '0 0 4px' }}>
-                  Créditos pendientes en LIB: <strong>{ncPendiente}</strong> — Semestres estimados restantes: <strong>{semestresEst}</strong> (aprox. {ncPorSemestre} NC/semestre)
+                  Créditos contabilizados:{' '}
+                  <strong>{contabilizados.nc}</strong>
+                  <span style={{ color: '#64748b' }}> (máx. {MAX_NC_POR_ESTUDIANTE} NC por alumno)</span>
+                  {' '}— Semestres estimados restantes: <strong>{semestresEst}</strong> (aprox. {ncPorSemestre} NC/semestre)
                 </p>
               );
             })()}
