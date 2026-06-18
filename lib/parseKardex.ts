@@ -161,7 +161,10 @@ export function parseMaterias(paginas: TextItem[][]): Materia[] {
       if (nrc === 'NRC') continue;
 
       // Renglón que inicia una materia: tiene NRC y Clave válidos.
-      if (NRC_RE.test(nrc) && CLAVE_RE.test(clave)) {
+      // Materias con calificación "Acreditado" pueden tener NRC vacío — las aceptamos
+      // si la clave y el nombre son válidos para evitar que se pierdan del mapa.
+      const esAcreditado = /acredit/i.test(c.calif ?? '') || /acredit/i.test(c.tipo ?? '');
+      if ((NRC_RE.test(nrc) || (nrc === '' && esAcreditado && mat !== '')) && CLAVE_RE.test(clave)) {
         const g = parseCalificacion(c.calif);
         intento = {
           calificacion: g.num,

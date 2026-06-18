@@ -200,8 +200,10 @@ export function parseSigaMaterias(paginas: TextItem[][]): Materia[] {
       // Fila de encabezado de la tabla
       if (crn === 'CRN' || crn === 'NRC') continue;
 
-      // Renglón que inicia una materia: CRN y Clave válidos
-      if (CRN_RE.test(crn) && CLAVE_RE.test(clave)) {
+      // Renglón que inicia una materia: CRN y Clave válidos.
+      // Materias Acreditado pueden venir sin CRN — las admitimos si clave y nombre son válidos.
+      const esAcreditado = /acredit/i.test(c.calif ?? '') || /acredit/i.test(c.tipo ?? '');
+      if ((CRN_RE.test(crn) || (crn === '' && esAcreditado && nombre !== '')) && CLAVE_RE.test(clave)) {
         const g = parseCalificacionSiga(c.calif ?? '');
         intento = {
           calificacion:     g.num,

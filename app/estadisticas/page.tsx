@@ -4,12 +4,17 @@ import { useState, useEffect, type CSSProperties } from 'react';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
+type MateriaPendienteDetalle = { clave: string; nombre: string; creditos: number };
+
 type ConteoStorage = {
   codigo_alumno: string;
   total: number;
-  materias: string[];
+  materias: MateriaPendienteDetalle[];
+  ncContabilizados?: number;
   timestamp: string;
 };
+
+type DemandaEntry = { nombre: string; creditos: number; alumnos: string[] };
 
 // ─── Donut Chart (SVG) ────────────────────────────────────────────────────────
 
@@ -104,6 +109,7 @@ function InfoCard({
 
 export default function EstadisticasPage() {
   const [conteo, setConteo] = useState<ConteoStorage | null>(null);
+  const [demanda, setDemanda] = useState<Record<string, DemandaEntry>>({});
   const [folio, setFolio] = useState(0);
   const [totalLib, setTotalLib] = useState<number | null>(null);
   const [mounted, setMounted] = useState(false);
@@ -116,6 +122,8 @@ export default function EstadisticasPage() {
       const raw = localStorage.getItem('cambio_plan_conteo_pendientes');
       if (raw) setConteo(JSON.parse(raw) as ConteoStorage);
       setFolio(parseInt(localStorage.getItem('folio_solicitudes') ?? '0', 10) || 0);
+      const rawD = localStorage.getItem('cambio_plan_demanda');
+      if (rawD) setDemanda(JSON.parse(rawD) as Record<string, DemandaEntry>);
     } catch {
       // localStorage not available
     }
@@ -129,17 +137,22 @@ export default function EstadisticasPage() {
   if (!mounted) return null;
 
   const covered = totalLib != null && conteo != null ? totalLib - conteo.total : null;
-  const hasDatos = conteo !== null || folio > 0;
+  const hasDatos = conteo !== null || folio > 0 || Object.keys(demanda).length > 0;
 
   const filteredMaterias = conteo?.materias.filter(m =>
-    m.toLowerCase().includes(searchQuery.toLowerCase())
+    m.nombre.toLowerCase().includes(searchQuery.toLowerCase())
   ) ?? [];
+
+  const demandaOrdenada = Object.entries(demanda)
+    .sort(([, a], [, b]) => b.alumnos.length - a.alumnos.length);
 
   const handleClear = () => {
     localStorage.removeItem('cambio_plan_conteo_pendientes');
     localStorage.removeItem('folio_solicitudes');
+    localStorage.removeItem('cambio_plan_demanda');
     setConteo(null);
     setFolio(0);
+    setDemanda({});
     setCleared(true);
   };
 
@@ -328,9 +341,9 @@ export default function EstadisticasPage() {
                   fontSize: 12,
                   color: '#0369a1',
                 }}>
-                  <span>Créditos faltantes estimados: </span>
-                  <strong>{conteo.total * 8}</strong>
-                  <span> NC (promedio 8 NC/materia)</span>
+                  <span>Créditos por cursar: </span>
+                  <strong>{conteo.materias.reduce((s, m) => s + m.creditos, 0)}</strong>
+                  <span> NC</span>
                 </div>
               )}
             </div>
@@ -385,7 +398,7 @@ export default function EstadisticasPage() {
                   filteredMaterias.map((m, i) => (
                     <tr key={i} style={{ background: i % 2 === 0 ? '#fff' : '#f9fafb' }}>
                       <td style={{ ...tdStyle, color: '#9ca3af', fontWeight: 700 }}>{i + 1}</td>
-                      <td style={tdStyle}>{m}</td>
+                      <td style={tdStyle}>{m.nombre}</td>
                       <td style={{ ...tdStyle, textAlign: 'center' as const }}>
                         <span style={{
                           display: 'inline-block',
@@ -416,7 +429,7 @@ export default function EstadisticasPage() {
                 {(() => {
                   const freq: Record<string, number> = {};
                   for (const m of conteo.materias) {
-                    const inicial = m[0]?.toUpperCase() ?? '?';
+                    const inicial = m.nombre[0]?.toUpperCase() ?? '?';
                     freq[inicial] = (freq[inicial] ?? 0) + 1;
                   }
                   const maxFreq = Math.max(...Object.values(freq));
@@ -443,7 +456,61 @@ export default function EstadisticasPage() {
         </div>
       )}
 
-      {/* ── Sección 4 — Datos crudos del localStorage ───────────────────────── */}
+      {/* ── Sección 4 — Cupos estimados próximo semestre ────────────────────── */}
+      {demandaOrdenada.length > 0 && (
+        <div style={card}>
+          <h2 style={sectionTitle}>
+            Cupos Estimados — Próximo Semestre
+            <span style={{ marginLeft: 8, fontSize: 12, fontWeight: 400, color: '#6b7280' }}>
+              ({demandaOrdenada.length} materias · {new Set(demandaOrdenada.flatMap(([, e]) => e.alumnos)).size} alumnos)
+            </span>
+          </h2>
+          <p style={{ margin: '0 0 16px', fontSize: 13, color: '#6b7280' }}>
+            Cada vez que se guarda el conteo de un alumno, sus materias pendientes (hasta {50} NC)
+            se suman aquí. El contador indica cuántos alumnos necesitan esa materia el siguiente semestre.
+          </p>
+          <div style={{ overflowX: 'auto' }}>
+            <table style={{ borderCollapse: 'collapse', width: '100%' }}>
+              <thead>
+                <tr>
+                  <th style={{ ...th, width: 36 }}>#</th>
+                  <th style={th}>Materia del Plan LIB</th>
+                  <th style={{ ...th, width: 60, textAlign: 'center' as const }}>NC</th>
+                  <th style={{ ...th, width: 90, textAlign: 'center' as const }}>Cupos</th>
+                  <th style={th}>Alumnos</th>
+                </tr>
+              </thead>
+              <tbody>
+                {demandaOrdenada.map(([clave, entry], i) => (
+                  <tr key={clave} style={{ background: i % 2 === 0 ? '#fff' : '#f9fafb' }}>
+                    <td style={{ ...tdStyle, color: '#9ca3af', fontWeight: 700 }}>{i + 1}</td>
+                    <td style={tdStyle}>{entry.nombre}</td>
+                    <td style={{ ...tdStyle, textAlign: 'center' as const, color: '#6b7280' }}>{entry.creditos}</td>
+                    <td style={{ ...tdStyle, textAlign: 'center' as const }}>
+                      <span style={{
+                        display: 'inline-block',
+                        padding: '2px 10px',
+                        background: entry.alumnos.length >= 3 ? '#fee2e2' : entry.alumnos.length === 2 ? '#fef9c3' : '#dbeafe',
+                        color: entry.alumnos.length >= 3 ? '#991b1b' : entry.alumnos.length === 2 ? '#713f12' : '#1e40af',
+                        borderRadius: 12,
+                        fontSize: 13,
+                        fontWeight: 800,
+                      }}>
+                        {entry.alumnos.length}
+                      </span>
+                    </td>
+                    <td style={{ ...tdStyle, color: '#6b7280', fontSize: 11 }}>
+                      {entry.alumnos.join(', ')}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {/* ── Sección 5 — Datos crudos del localStorage ───────────────────────── */}
       <div style={card}>
         <h2 style={sectionTitle}>Datos en el Almacenamiento Local</h2>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>

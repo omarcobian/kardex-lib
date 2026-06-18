@@ -110,30 +110,6 @@
       "destino": { "clave": "V5909", "nombre": "Señales y sistemas robóticos", "creditos": 8 }
     },
     {
-      "origen": { "clave": "PROYIM", "nombre": "Proyecto de Instrumentación Médica", "creditos": 15 },
-      "destino": [
-        { "clave": "V3660", "nombre": "Seminario de integración: Protocolo", "creditos": 4 },
-        { "clave": "V5925", "nombre": "Laboratorio Abierto: Diseño", "creditos": 3 }
-      ],
-      "_nota": "Solo se convalida si los tres proyectos INBI están aprobados"
-    },
-    {
-      "origen": { "clave": "PROYBH", "nombre": "Proyecto de Biomecánica Humana", "creditos": 15 },
-      "destino": [
-        { "clave": "V3659", "nombre": "Seminario de integración: Desarrollo", "creditos": 6 },
-        { "clave": "V5926", "nombre": "Laboratorio Abierto: Construcción", "creditos": 3 }
-      ],
-      "_nota": "Solo se convalida si los tres proyectos INBI están aprobados"
-    },
-    {
-      "origen": { "clave": "PROYEF", "nombre": "Proyecto de Electrofisiologia", "creditos": 15 },
-      "destino": [
-        { "clave": "V3658", "nombre": "Seminario de integración: Comunicación", "creditos": 4 },
-        { "clave": "V5927", "nombre": "Laboratorio Abierto: Pruebas", "creditos": 3 }
-      ],
-      "_nota": "Solo se convalida si los tres proyectos INBI están aprobados. También convalida Proyecto modular."
-    },
-    {
       "origen": { "clave": "I7608", "nombre": "Procesamiento de Bioseñales", "creditos": 8 },
       "destino": { "clave": "V5913", "nombre": "Procesamiento de bioseñales", "creditos": 8 }
     },
@@ -177,6 +153,7 @@
     },
     {
       "_nota": "Si el alumno tiene los tres proyectos INBI, también se convalida Proyecto modular en LIB",
+      "tipo_calificacion": "acreditado",
       "origen": [
         { "clave": "PROYIM", "nombre": "Proyecto de Instrumentación Médica", "creditos": 15 },
         { "clave": "PROYBH", "nombre": "Proyecto de Biomecánica Humana", "creditos": 15 },

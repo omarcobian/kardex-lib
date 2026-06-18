@@ -21,11 +21,14 @@ type Destino = { clave: string; nombre: string; creditos: number };
 type EquivalenciaEntry = {
   origen: { clave: string; nombre: string; creditos: number; _clave_ssp?: string };
   destino: Destino | Destino[];
+  // When set, all listed claves must be in the kardex for this entry to fire.
+  _requiere_claves?: string[];
 };
 
 type EquivalenciaEspecial = {
-  origen: { clave: string; nombre: string; creditos: number }[];
+  origen: { clave: string; nombre: string; creditos: number; _clave_ssp?: string }[];
   destino: Destino;
+  tipo_calificacion?: 'acreditado' | 'promedio';
 };
 
 type SinEquivalencia = { clave: string; nombre: string; creditos: number; razon: string };
@@ -41,18 +44,23 @@ type PlanData = {
   };
 };
 
-type EstadoRow = 'verde' | 'amarillo' | 'rojo' | 'gris';
+// 'naranja' = equivalencia especial parcialmente cumplida (faltan materias del grupo)
+type EstadoRow = 'verde' | 'amarillo' | 'rojo' | 'gris' | 'naranja';
 
 type TablaRow = {
   estado: EstadoRow;
-  inbi: { clave: string; nombre: string; creditos: number; calificacion: number | null; nc: number | null } | null;
+  inbi: { clave: string; nombre: string; creditos: number; calificacion: number | string | null; nc: number | null } | null;
   lib: { clave: string; nombre: string; creditos: number } | null;
 };
+
+type MateriaPendienteDetalle = { clave: string; nombre: string; creditos: number };
+
+type DemandaEntry = { nombre: string; creditos: number; alumnos: string[] };
 
 type ConteoStorage = {
   codigo_alumno: string;
   total: number;
-  materias: string[];
+  materias: MateriaPendienteDetalle[];
   ncContabilizados: number;
   timestamp: string;
 };
@@ -67,6 +75,7 @@ const COLOR: Record<EstadoRow, string> = {
   amarillo: '#fef9c3',
   rojo: '#fee2e2',
   gris: '#f3f4f6',
+  naranja: '#ffedd5',
 };
 
 const COLOR_BORDER: Record<EstadoRow, string> = {
@@ -74,6 +83,7 @@ const COLOR_BORDER: Record<EstadoRow, string> = {
   amarillo: '#fde68a',
   rojo: '#fca5a5',
   gris: '#e5e7eb',
+  naranja: '#fb923c',
 };
 
 // ─── Equivalency logic ─────────────────────────────────────────────────────────
@@ -88,41 +98,128 @@ function calcularFilas(kardex: Kardex | null, planData: PlanData): TablaRow[] {
     for (const m of kardex.materias) kardexMap.set(m.clave, m);
   }
 
+  const normStr = (s: string) =>
+    s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
+
+  // Broad keyword match — used only in equivalencias_especiales where canonical claves
+  // (PROYIM, PROYBH, PROYEF) may not match the real SIIAU clave in the PDF.
+  const buscarPorNombre = (nombre: string): Kardex['materias'][0] | undefined => {
+    const palabras = normStr(nombre).split(/\s+/).filter(p => p.length > 3);
+    if (!palabras.length) return undefined;
+    for (const m of kardexMap.values()) {
+      if (palabras.every(p => normStr(m.nombre).includes(p))) return m;
+    }
+    return undefined;
+  };
+
+  // Exact-nombre match (accent/case insensitive) — safe fallback for regular equivalencias.
+  // Unlike buscarPorNombre, this requires the full nombre to match, so
+  // "Programación" will NOT match "Seminario de solución de problemas de Programación".
+  const buscarNombreExacto = (nombre: string): Kardex['materias'][0] | undefined => {
+    const n = normStr(nombre);
+    for (const m of kardexMap.values()) {
+      if (normStr(m.nombre) === n) return m;
+    }
+    return undefined;
+  };
+
+  // canonical clave → real kardex materia (populated during especiales loop).
+  // Used by regular equivalencias so PROYIM/PROYBH/PROYEF can resolve to the
+  // real materia without running buscarPorNombre on all equivalencias.
+  const canonToReal = new Map<string, Kardex['materias'][0]>();
+
   // Track which LIB claves get covered by an equivalencia
   const libCubiertasClaves = new Set<string>();
 
-  // Origen claves ya resueltos por una equivalencia especial (no deben
-  // evaluarse de nuevo en el recorrido de "sin equivalencia").
-  const origenCubiertosPorEspecial = new Set<string>();
+  // Real kardex claves consumed by ANY equivalencia — prevents duplicate rojo rows.
+  const realClavesCubiertas = new Set<string>();
 
-  // Equivalencias especiales: requieren VARIOS orígenes (p.ej. dos seminarios)
-  // para convalidar un solo destino. Se evalúan primero.
+  // Equivalencias especiales: requieren VARIOS orígenes para convalidar un destino.
+  // Se evalúan primero. Soporta _clave_ssp igual que las equivalencias normales.
+  // Track destinos parcialmente iniciados so the LIB gris loop can skip them.
+  const libHandledParcial = new Set<string>();
   for (const esp of eqData.equivalencias_especiales ?? []) {
-    const kms = esp.origen.map(o => kardexMap.get(o.clave));
-    if (kms.every((km): km is NonNullable<typeof km> => km != null)) {
+    const kms = esp.origen.map(o => {
+      const lc = o._clave_ssp ?? o.clave;
+      const byKey = kardexMap.get(lc);
+      if (byKey) { canonToReal.set(lc, byKey); return byKey; }
+      const byName = buscarPorNombre(o.nombre);
+      if (byName) { canonToReal.set(lc, byName); return byName; }
+      return undefined;
+    });
+    const allPresent = kms.every((km): km is NonNullable<typeof km> => km != null);
+    const somePresent = kms.some(km => km != null);
+
+    if (allPresent) {
+      // Calificación: 'Acreditado' si tipo_calificacion === 'acreditado', promedio en otro caso.
+      let calificacion: number | string | null;
+      if (esp.tipo_calificacion === 'acreditado') {
+        calificacion = 'Acreditado';
+      } else {
+        const cals = kms.map(km => km!.calificacion).filter((c): c is number => c != null);
+        calificacion = cals.length > 0
+          ? Math.round(cals.reduce((s, c) => s + c, 0) / cals.length)
+          : null;
+      }
+      // NC: suma de los NC del kardex; si viene null (Acreditado sin NC en PDF)
+      // se usa el crédito declarado en equivalencias.json para ese origen.
+      const nc = kms.reduce((sum, km, i) => sum + (km!.nc ?? esp.origen[i].creditos ?? 0), 0);
+
       rows.push({
         estado: 'verde',
         inbi: {
           clave: esp.origen.map(o => o.clave).join(' + '),
           nombre: esp.origen.map(o => o.nombre).join(' + '),
           creditos: esp.origen.reduce((sum, o) => sum + o.creditos, 0),
+          calificacion,
+          nc,
+        },
+        lib: { clave: esp.destino.clave, nombre: esp.destino.nombre, creditos: esp.destino.creditos },
+      });
+      libCubiertasClaves.add(esp.destino.clave);
+      for (const km of kms as NonNullable<(typeof kms)[0]>[]) realClavesCubiertas.add(km.clave);
+    } else if (somePresent) {
+      // Partial match: show which are present and which are missing.
+      const presenteNombres = esp.origen
+        .filter((_, i) => kms[i] != null)
+        .map(o => o.nombre);
+      const faltanNombres = esp.origen
+        .filter((_, i) => kms[i] == null)
+        .map(o => o.nombre);
+
+      rows.push({
+        estado: 'naranja',
+        inbi: {
+          clave: esp.origen.map(o => o.clave).join(' + '),
+          nombre: `${presenteNombres.join(' + ')} (Falta: ${faltanNombres.join(', ')})`,
+          creditos: esp.origen.reduce((sum, o) => sum + o.creditos, 0),
           calificacion: null,
           nc: null,
         },
         lib: { clave: esp.destino.clave, nombre: esp.destino.nombre, creditos: esp.destino.creditos },
       });
-      libCubiertasClaves.add(esp.destino.clave);
-      for (const o of esp.origen) origenCubiertosPorEspecial.add(o.clave);
+      libHandledParcial.add(esp.destino.clave);
+      for (const km of kms) { if (km != null) realClavesCubiertas.add(km.clave); }
     }
   }
 
   // Process each equivalencia pair
   for (const eq of eqData.equivalencias) {
-    // _clave_ssp overrides the lookup clave when the INBI seminario has a separate code
+    // _requiere_claves: ALL listed claves must be in kardex (by clave or via canonToReal).
+    if (eq._requiere_claves && !eq._requiere_claves.every(cl => kardexMap.has(cl) || canonToReal.has(cl))) continue;
+
     const lookupClave = eq.origen._clave_ssp ?? eq.origen.clave;
-    const km = kardexMap.get(lookupClave);
+    // 1) exact clave, 2) via especiales discovery, 3) exact nombre (accent/case insensitive)
+    const km = kardexMap.get(lookupClave)
+      ?? canonToReal.get(lookupClave)
+      ?? (() => {
+        const found = buscarNombreExacto(eq.origen.nombre);
+        if (found) canonToReal.set(lookupClave, found);
+        return found;
+      })();
 
     if (km) {
+      realClavesCubiertas.add(km.clave);
       // Un origen puede convalidar uno o varios destinos (p.ej. los proyectos INBI).
       const destinos = Array.isArray(eq.destino) ? eq.destino : [eq.destino];
       for (const destino of destinos) {
@@ -138,11 +235,12 @@ function calcularFilas(kardex: Kardex | null, planData: PlanData): TablaRow[] {
     }
   }
 
-  // Kardex materias explicitly listed as sin equivalencia
+  // Kardex materias explicitly listed as sin equivalencia — exact clave only.
   if (kardex) {
     for (const sinEq of eqData.sin_equivalencia) {
       const km = kardexMap.get(sinEq.clave);
       if (km) {
+        realClavesCubiertas.add(km.clave);
         rows.push({
           estado: 'rojo',
           inbi: { clave: km.clave, nombre: km.nombre, creditos: sinEq.creditos, calificacion: km.calificacion, nc: km.nc },
@@ -157,7 +255,7 @@ function calcularFilas(kardex: Kardex | null, planData: PlanData): TablaRow[] {
       ...eqData.sin_equivalencia.map(s => s.clave),
     ]);
     for (const km of kardex.materias) {
-      if (origenCubiertosPorEspecial.has(km.clave)) continue;
+      if (realClavesCubiertas.has(km.clave)) continue;
       if (!todasOriginClaves.has(km.clave)) {
         rows.push({
           estado: 'rojo',
@@ -170,7 +268,7 @@ function calcularFilas(kardex: Kardex | null, planData: PlanData): TablaRow[] {
 
   // LIB materias not covered by any matched equivalencia → gris (pending)
   for (const libM of planData.planLib.materias) {
-    if (!libCubiertasClaves.has(libM.clave)) {
+    if (!libCubiertasClaves.has(libM.clave) && !libHandledParcial.has(libM.clave)) {
       rows.push({
         estado: 'gris',
         inbi: null,
@@ -199,7 +297,7 @@ function calcularPendientes(filas: TablaRow[], planData: PlanData): string[] {
 function calcularContabilizados(
   filas: TablaRow[],
   planData: PlanData,
-): { materias: string[]; nc: number } {
+): { materias: MateriaPendienteDetalle[]; nc: number } {
   const cubiertasClaves = new Set<string>();
   for (const f of filas) {
     if (f.lib && (f.estado === 'verde' || f.estado === 'amarillo')) {
@@ -207,11 +305,12 @@ function calcularContabilizados(
     }
   }
   let nc = 0;
-  const materias: string[] = [];
+  const materias: MateriaPendienteDetalle[] = [];
   for (const m of planData.planLib.materias) {
     if (cubiertasClaves.has(m.clave)) continue;
-    if (nc >= MAX_NC_POR_ESTUDIANTE) break;
-    materias.push(m.nombre);
+    // Stop before exceeding the cap — don't add a subject that would push total over the limit.
+    if (nc + m.creditos > MAX_NC_POR_ESTUDIANTE) break;
+    materias.push({ clave: m.clave, nombre: m.nombre, creditos: m.creditos });
     nc += m.creditos;
   }
   return { materias, nc };
@@ -221,6 +320,17 @@ function calcularContabilizados(
 
 function guardarConteo(conteo: ConteoStorage) {
   localStorage.setItem('cambio_plan_conteo_pendientes', JSON.stringify(conteo));
+}
+
+function leerDemanda(): Record<string, DemandaEntry> {
+  try {
+    const raw = localStorage.getItem('cambio_plan_demanda');
+    return raw ? (JSON.parse(raw) as Record<string, DemandaEntry>) : {};
+  } catch { return {}; }
+}
+
+function guardarDemanda(d: Record<string, DemandaEntry>) {
+  localStorage.setItem('cambio_plan_demanda', JSON.stringify(d));
 }
 
 function leerConteo(): ConteoStorage | null {
@@ -285,7 +395,7 @@ async function generarPdfSolicitud(
 
   // y below which the footer graphic lives — never write past this boundary.
   // Adjust this value if your footer is taller or shorter.
-  const FOOTER_LIMIT = 80;
+  const FOOTER_LIMIT = 105;
   const TOP_P1 = H - 135; // content start on page 1 (below full header)
   const TOP_PN = H - 150; // content start on pages 2+ (extra top margin to clear the header)
 
@@ -408,7 +518,7 @@ async function generarPdfSolicitud(
 
   // ── Equivalency table ──────────────────────────────────────────────────────
 
-  const equivFilas = filas.filter(f => f.estado === 'verde' || f.estado === 'amarillo');
+  const equivFilas = filas.filter(f => f.estado === 'verde' || f.estado === 'amarillo' || f.estado === 'naranja');
 
   // Need room for both header rows before even starting the table.
   if (needsBreak(ROW_H * 2 + ROW_H)) await addPage();
@@ -417,7 +527,9 @@ async function generarPdfSolicitud(
   for (const row of equivFilas) {
     const inbiLineas = wrapText(row.inbi?.nombre ?? '', COL_ASIG_W,  7, helvetica);
     const libLineas  = wrapText(row.lib?.nombre  ?? '', COL_ASIG2_W, 7, helvetica);
-    const numLineas  = Math.max(inbiLineas.length, libLineas.length);
+    const clavInbi   = wrapText(row.inbi?.clave  ?? '', COL_CLAVE_W,  7, helvetica);
+    const clavLib    = wrapText(row.lib?.clave   ?? '', COL_CLAVE2_W, 7, helvetica);
+    const numLineas  = Math.max(inbiLineas.length, libLineas.length, clavInbi.length, clavLib.length);
     const rowH       = (numLineas - 1) * LINE_H + ROW_H;
 
     if (needsBreak(rowH + 2)) {
@@ -429,10 +541,15 @@ async function generarPdfSolicitud(
 
     inbiLineas.forEach((l, i) => draw(l, xA1, y - i * LINE_H, 7));
     libLineas.forEach( (l, i) => draw(l, xA2, y - i * LINE_H, 7));
-    draw(row.inbi?.clave        ?? '',                                  xC1, y, 7);
-    draw(row.inbi?.calificacion != null ? String(row.inbi.calificacion) : '', xK1, y, 7);
+    clavInbi.forEach(  (l, i) => draw(l, xC1, y - i * LINE_H, 7));
+    clavLib.forEach(   (l, i) => draw(l, xC2, y - i * LINE_H, 7));
+    draw(
+      row.inbi?.calificacion == null ? '' :
+      typeof row.inbi.calificacion === 'string' ? 'Acred.' :
+      String(row.inbi.calificacion),
+      xK1, y, 7,
+    );
     draw(row.inbi?.nc           != null ? String(row.inbi.nc)           : '', xN1, y, 7);
-    draw(row.lib?.clave         ?? '',                                  xC2, y, 7);
     draw(row.lib?.creditos      != null ? String(row.lib.creditos)      : '', xK2, y, 7);
 
     y -= rowH;
@@ -504,7 +621,32 @@ export default function CambioPlan() {
   const contabilizados = planData && kardex
     ? calcularContabilizados(filas, planData)
     : { materias: [], nc: 0 };
-  const contabilizadasSet = new Set(contabilizados.materias);
+  const contabilizadasSet = new Set(contabilizados.materias.map(m => m.nombre));
+
+  // Diagnostic: per-especial lookup results (shows clave match + nombre-fallback match)
+  const diagnosticoEspeciales = kardex && planData
+    ? (() => {
+        const map = new Map<string, Kardex['materias'][0]>();
+        for (const m of kardex.materias) map.set(m.clave, m);
+        const ns = (s: string) => s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
+        const porNombre = (nombre: string) => {
+          const p = ns(nombre).split(/\s+/).filter(w => w.length > 3);
+          if (!p.length) return undefined;
+          for (const m of map.values()) if (p.every(w => ns(m.nombre).includes(w))) return m;
+          return undefined;
+        };
+        return (planData.equivalencias.equivalencias_especiales ?? []).map(esp => ({
+          destino: esp.destino.nombre,
+          origen: esp.origen.map(o => {
+            const lc = o._clave_ssp ?? o.clave;
+            const byKey = map.get(lc);
+            const byName = byKey ? undefined : porNombre(o.nombre);
+            const found = byKey ?? byName;
+            return { clave: o.clave, lookupClave: lc, nombre: o.nombre, encontrado: found != null, viaNombre: byName != null, realClave: found?.clave };
+          }),
+        }));
+      })()
+    : null;
 
   // ── Kardex upload ─────────────────────────────────────────────────────────────
 
@@ -544,8 +686,9 @@ export default function CambioPlan() {
   const actualizarConteo = useCallback(() => {
     if (!kardex || !planData) return;
     const { materias, nc } = calcularContabilizados(filas, planData);
+    const codigo = kardex.estudiante.codigo ?? '';
     const conteo: ConteoStorage = {
-      codigo_alumno: kardex.estudiante.codigo ?? '',
+      codigo_alumno: codigo,
       total: materias.length,
       materias,
       ncContabilizados: nc,
@@ -553,6 +696,22 @@ export default function CambioPlan() {
     };
     guardarConteo(conteo);
     setConteoPrevio(conteo);
+
+    // Actualizar mapa global de demanda (acumula todos los alumnos procesados)
+    const demanda = leerDemanda();
+    // Limpiar entradas previas de este alumno antes de re-añadir
+    for (const entry of Object.values(demanda)) {
+      entry.alumnos = entry.alumnos.filter(a => a !== codigo);
+    }
+    for (const m of materias) {
+      if (!demanda[m.clave]) demanda[m.clave] = { nombre: m.nombre, creditos: m.creditos, alumnos: [] };
+      if (!demanda[m.clave].alumnos.includes(codigo)) demanda[m.clave].alumnos.push(codigo);
+    }
+    // Eliminar entradas que quedaron sin alumnos
+    for (const k of Object.keys(demanda)) {
+      if (demanda[k].alumnos.length === 0) delete demanda[k];
+    }
+    guardarDemanda(demanda);
   }, [kardex, planData, filas]);
 
   // ── PDF ───────────────────────────────────────────────────────────────────────
@@ -731,6 +890,7 @@ export default function CambioPlan() {
             [
               ['verde', 'Equivalencia directa (iguales NC)'],
               ['amarillo', 'Equivalencia parcial (NC distinto)'],
+              ['naranja', 'Equivalencia especial incompleta (faltan materias)'],
               ['rojo', 'Sin equivalencia en LIB'],
               ['gris', 'Materia LIB no cubierta (pendiente)'],
             ] as [EstadoRow, string][]
@@ -803,6 +963,54 @@ export default function CambioPlan() {
           </div>
         )}
       </div>
+
+      {/* ── DIAGNÓSTICO equivalencias especiales ─────────────────────────────── */}
+      {diagnosticoEspeciales && (
+        <details style={{ marginBottom: 24 }}>
+          <summary style={{ cursor: 'pointer', fontSize: 13, color: '#4b5563', padding: '8px 12px', background: '#f9fafb', border: '1px solid #e5e7eb', borderRadius: 6 }}>
+            🔍 Diagnóstico de equivalencias especiales
+          </summary>
+          <div style={{ border: '1px solid #e5e7eb', borderTop: 'none', borderRadius: '0 0 6px 6px', padding: 14, background: '#fff' }}>
+            {diagnosticoEspeciales.map((esp, i) => (
+              <div key={i} style={{ marginBottom: 12, fontSize: 12 }}>
+                <div style={{ fontWeight: 600, marginBottom: 4, color: '#1e3a5f' }}>
+                  → {esp.destino}
+                </div>
+                {esp.origen.map(o => (
+                  <div key={o.clave} style={{ display: 'flex', gap: 8, alignItems: 'center', marginLeft: 12, marginBottom: 2 }}>
+                    <span style={{
+                      display: 'inline-block', width: 10, height: 10, borderRadius: '50%',
+                      background: o.encontrado ? '#22c55e' : '#ef4444', flexShrink: 0,
+                    }} />
+                    <span style={{ fontFamily: 'monospace', color: '#374151' }}>{o.lookupClave}</span>
+                    <span style={{ color: '#6b7280' }}>{o.nombre}</span>
+                    {o.viaNombre && o.realClave && (
+                      <span style={{ color: '#d97706', fontStyle: 'italic' }}>
+                        — clave real: <code>{o.realClave}</code> (encontrado por nombre)
+                      </span>
+                    )}
+                    {!o.encontrado && (
+                      <span style={{ color: '#ef4444', fontStyle: 'italic' }}>— no encontrado en kardex</span>
+                    )}
+                  </div>
+                ))}
+              </div>
+            ))}
+            <details style={{ marginTop: 10 }}>
+              <summary style={{ cursor: 'pointer', fontSize: 11, color: '#6b7280' }}>
+                Todas las materias del kardex ({kardex?.materias.length ?? 0})
+              </summary>
+              <div style={{ marginTop: 6, display: 'flex', flexWrap: 'wrap', gap: 4 }}>
+                {kardex?.materias.map((m, idx) => (
+                  <span key={idx} style={{ fontFamily: 'monospace', fontSize: 10, background: '#f3f4f6', border: '1px solid #e5e7eb', borderRadius: 3, padding: '1px 5px' }}>
+                    {m.clave}
+                  </span>
+                ))}
+              </div>
+            </details>
+          </div>
+        </details>
+      )}
 
       {/* ── SECCIÓN 3 — Materias Pendientes ──────────────────────────────────── */}
       <div style={sectionCard}>
