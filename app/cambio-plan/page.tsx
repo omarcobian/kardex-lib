@@ -488,7 +488,7 @@ async function generarPdfSolicitud(
 
   // ── Page 1: folio, date, recipient, opening paragraph ─────────────────────
 
-  const folioStr = `CUCEI/SAC/INBI/${folio}/2026`;
+  const folioStr = `CUCEI/SAC/INBI/LIB/${folio}/2026`;
   const fechaStr = fechaEspanol();
 
   draw(folioStr, RIGHT - helveticaBold.widthOfTextAtSize(folioStr, 9), y, 9, true);
@@ -573,8 +573,11 @@ async function generarPdfSolicitud(
     '"40 años de la Feria Internacional del Libro de Guadalajara"',
     `Guadalajara, Jal., ${fechaStr}`,
   ];
-  // Estimated height: 4 closing lines + gap + 4 signature lines
-  const closingH = (cierreLines.length + pieLines.length) * 13 + 20;
+  const firmanteNombre = 'Mtro. Victor Ernesto Moreno Gonzalez';
+  const firmanteCargo  = 'Coordinador de ingeniería biomédica';
+
+  // Estimated height: cierre + gap + pieLines + gap + firmante (2 lines)
+  const closingH = (cierreLines.length + pieLines.length + 2) * 13 + 30;
   if (needsBreak(closingH)) await addPage();
 
   for (const linea of cierreLines) {
@@ -583,10 +586,27 @@ async function generarPdfSolicitud(
   }
   y -= 10;
 
+  // Pie centrado entre LEFT y RIGHT
   for (const linea of pieLines) {
-    draw(linea, LEFT, y, 9, linea === 'Atentamente' || linea === 'Piensa y Trabaja');
+    const bold = linea === 'Atentamente' || linea === 'Piensa y Trabaja';
+    const textW = (bold ? helveticaBold : helvetica).widthOfTextAtSize(linea, 9);
+    draw(linea, LEFT + (CONTENT_W - textW) / 2, y, 9, bold);
     y -= 13;
   }
+  y -= 8;
+
+  // Firmante centrado
+  draw(
+    firmanteNombre,
+    LEFT + (CONTENT_W - helveticaBold.widthOfTextAtSize(firmanteNombre, 9)) / 2,
+    y, 9, true,
+  );
+  y -= 13;
+  draw(
+    firmanteCargo,
+    LEFT + (CONTENT_W - helvetica.widthOfTextAtSize(firmanteCargo, 9)) / 2,
+    y, 9,
+  );
 
   return doc.save();
 }
@@ -605,6 +625,14 @@ export default function CambioPlan() {
   const [pdfError, setPdfError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  // ── Edición manual de la tabla ────────────────────────────────────────────────
+  const [modoEdicion, setModoEdicion] = useState(false);
+  const [filasOverride, setFilasOverride] = useState<TablaRow[] | null>(null);
+  const [formNueva, setFormNueva] = useState(false);
+  const [nuevaFila, setNuevaFila] = useState({
+    inbiNombre: '', inbiClave: '', inbiCalif: '', inbiNc: '', libClave: '',
+  });
+
   useEffect(() => {
     fetch('/api/leer-datos-plan')
       .then(r => r.json())
@@ -614,12 +642,22 @@ export default function CambioPlan() {
     setConteoPrevio(leerConteo());
   }, []);
 
-  // Computed equivalency table rows
+  // Reset edición manual cuando se sube un kardex nuevo
+  useEffect(() => {
+    setFilasOverride(null);
+    setModoEdicion(false);
+    setFormNueva(false);
+  }, [kardex]);
+
+  // Computed equivalency table rows (base)
   const filas: TablaRow[] = planData ? calcularFilas(kardex, planData) : [];
 
-  const pendientes = planData && kardex ? calcularPendientes(filas, planData) : [];
+  // filasActivas = override si el usuario editó manualmente, o el cálculo automático
+  const filasActivas: TablaRow[] = filasOverride ?? filas;
+
+  const pendientes = planData && kardex ? calcularPendientes(filasActivas, planData) : [];
   const contabilizados = planData && kardex
-    ? calcularContabilizados(filas, planData)
+    ? calcularContabilizados(filasActivas, planData)
     : { materias: [], nc: 0 };
   const contabilizadasSet = new Set(contabilizados.materias.map(m => m.nombre));
 
@@ -712,7 +750,38 @@ export default function CambioPlan() {
       if (demanda[k].alumnos.length === 0) delete demanda[k];
     }
     guardarDemanda(demanda);
-  }, [kardex, planData, filas]);
+  }, [kardex, planData, filasActivas]);
+
+  // ── Edición manual: eliminar / agregar fila ───────────────────────────────────
+
+  const eliminarFila = useCallback((idx: number) => {
+    setFilasOverride(prev => (prev ?? filas).filter((_, i) => i !== idx));
+  }, [filas]);
+
+  const agregarFila = useCallback(() => {
+    if (!planData || !nuevaFila.libClave) return;
+    const libMateria = planData.planLib.materias.find(m => m.clave === nuevaFila.libClave);
+    if (!libMateria) return;
+    const califStr = nuevaFila.inbiCalif.trim();
+    const calificacion: number | string | null = /acredit/i.test(califStr)
+      ? 'Acreditado'
+      : (parseInt(califStr, 10) || null);
+    const nc = parseInt(nuevaFila.inbiNc, 10) || null;
+    const newRow: TablaRow = {
+      estado: 'verde',
+      inbi: {
+        clave: nuevaFila.inbiClave.toUpperCase().trim(),
+        nombre: nuevaFila.inbiNombre.trim(),
+        creditos: nc ?? libMateria.creditos,
+        calificacion,
+        nc,
+      },
+      lib: { clave: libMateria.clave, nombre: libMateria.nombre, creditos: libMateria.creditos },
+    };
+    setFilasOverride(prev => [...(prev ?? filas), newRow]);
+    setNuevaFila({ inbiNombre: '', inbiClave: '', inbiCalif: '', inbiNc: '', libClave: '' });
+    setFormNueva(false);
+  }, [planData, filas, nuevaFila]);
 
   // ── PDF ───────────────────────────────────────────────────────────────────────
 
@@ -722,7 +791,7 @@ export default function CambioPlan() {
     setPdfError(null);
     try {
       const folio = leerFolio() + 1;
-      const pdfBytes = await generarPdfSolicitud(kardex, filas, folio);
+      const pdfBytes = await generarPdfSolicitud(kardex, filasActivas, folio);
       const blob = new Blob([pdfBytes as unknown as BlobPart], { type: 'application/pdf' });
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
@@ -737,12 +806,12 @@ export default function CambioPlan() {
     } finally {
       setGeneratingPdf(false);
     }
-  }, [kardex, planData, filas]);
+  }, [kardex, planData, filasActivas]);
 
   // ── Derived stats ─────────────────────────────────────────────────────────────
 
   const totalLib = planData?.planLib.materias.length ?? 0;
-  const totalEquivalentes = filas.filter(f => f.estado === 'verde' || f.estado === 'amarillo').length;
+  const totalEquivalentes = filasActivas.filter(f => f.estado === 'verde' || f.estado === 'amarillo').length;
   const pctAvance = totalLib > 0 ? Math.round((totalEquivalentes / totalLib) * 100) : 0;
 
   // ── Styles ────────────────────────────────────────────────────────────────────
@@ -909,9 +978,48 @@ export default function CambioPlan() {
           ))}
         </div>
 
+        {/* Toolbar de edición manual */}
+        {kardex && (
+          <div style={{ display: 'flex', gap: 8, marginBottom: 12, alignItems: 'center', flexWrap: 'wrap' }}>
+            <button
+              onClick={() => {
+                if (!modoEdicion) {
+                  if (!filasOverride) setFilasOverride(filas);
+                  setModoEdicion(true);
+                } else {
+                  setModoEdicion(false);
+                  setFormNueva(false);
+                }
+              }}
+              style={{
+                padding: '5px 12px', fontSize: 12, fontWeight: 600, borderRadius: 6, cursor: 'pointer',
+                background: modoEdicion ? '#1e3a5f' : '#f1f5f9',
+                color: modoEdicion ? '#fff' : '#1e3a5f',
+                border: '1px solid #1e3a5f',
+              }}
+            >
+              {modoEdicion ? 'Cerrar edición' : 'Editar tabla'}
+            </button>
+            {filasOverride && (
+              <button
+                onClick={() => { setFilasOverride(null); setModoEdicion(false); setFormNueva(false); }}
+                style={{ padding: '5px 12px', fontSize: 12, borderRadius: 6, cursor: 'pointer', background: '#fee2e2', color: '#991b1b', border: '1px solid #fca5a5', fontWeight: 600 }}
+              >
+                Restablecer original
+              </button>
+            )}
+            {filasOverride && !modoEdicion && (
+              <span style={{ fontSize: 12, color: '#b45309', background: '#fef3c7', border: '1px solid #fde68a', borderRadius: 5, padding: '3px 8px' }}>
+                Tabla con ediciones manuales activas
+              </span>
+            )}
+          </div>
+        )}
+
         {!planData ? (
           <p style={{ color: '#6b7280', fontSize: 13 }}>Cargando datos del plan…</p>
         ) : (
+          <>
           <div style={{ overflowX: 'auto' }}>
             <table style={{ borderCollapse: 'collapse', width: '100%', fontSize: 12 }}>
               <thead>
@@ -933,16 +1041,29 @@ export default function CambioPlan() {
                 </tr>
               </thead>
               <tbody>
-                {filas.length === 0 ? (
+                {filasActivas.length === 0 ? (
                   <tr>
                     <td colSpan={7} style={{ ...td, textAlign: 'center', padding: 20 }}>
                       Sube un kardex para ver las equivalencias
                     </td>
                   </tr>
                 ) : (
-                  filas.map((row, i) => (
+                  filasActivas.map((row, i) => (
                     <tr key={i} style={{ background: COLOR[row.estado], borderBottom: `1px solid ${COLOR_BORDER[row.estado]}` }}>
-                      <td style={{ ...td, maxWidth: 220 }}>{row.inbi?.nombre ?? '—'}</td>
+                      <td style={{ ...td, maxWidth: 220 }}>
+                        <div style={{ display: 'flex', alignItems: 'flex-start', gap: 5 }}>
+                          {modoEdicion && (
+                            <button
+                              onClick={() => eliminarFila(i)}
+                              title="Eliminar fila"
+                              style={{ flexShrink: 0, background: '#ef4444', color: '#fff', border: 'none', borderRadius: 3, width: 16, height: 16, cursor: 'pointer', fontSize: 11, fontWeight: 700, lineHeight: 1, padding: 0, marginTop: 1 }}
+                            >
+                              ×
+                            </button>
+                          )}
+                          <span>{row.inbi?.nombre ?? '—'}</span>
+                        </div>
+                      </td>
                       <td style={{ ...td, fontFamily: 'monospace', fontSize: 11 }}>{row.inbi?.clave ?? '—'}</td>
                       <td style={{ ...td, textAlign: 'right' }}>
                         {row.inbi?.calificacion != null ? row.inbi.calificacion : '—'}
@@ -961,6 +1082,73 @@ export default function CambioPlan() {
               </tbody>
             </table>
           </div>
+
+          {/* Formulario para agregar fila manualmente */}
+          {modoEdicion && (
+            <div style={{ marginTop: 12 }}>
+              {!formNueva ? (
+                <button
+                  onClick={() => setFormNueva(true)}
+                  style={{ padding: '5px 14px', fontSize: 12, fontWeight: 600, borderRadius: 6, cursor: 'pointer', background: '#d1fae5', color: '#065f46', border: '1px solid #6ee7b7' }}
+                >
+                  + Agregar equivalencia
+                </button>
+              ) : (
+                <div style={{ border: '1px solid #6ee7b7', borderRadius: 8, padding: '14px 16px', background: '#f0fdf4', marginTop: 8 }}>
+                  <p style={{ margin: '0 0 10px', fontSize: 13, fontWeight: 700, color: '#065f46' }}>
+                    Nueva equivalencia (se agrega como verde)
+                  </p>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 8, marginBottom: 10 }}>
+                    {[
+                      { label: 'Clave INBI', key: 'inbiClave', placeholder: 'Ej. I5882' },
+                      { label: 'Nombre INBI', key: 'inbiNombre', placeholder: 'Nombre de la materia' },
+                      { label: 'Calificación', key: 'inbiCalif', placeholder: 'Ej. 95 o Acreditado' },
+                      { label: 'NC INBI', key: 'inbiNc', placeholder: 'Ej. 8' },
+                    ].map(({ label, key, placeholder }) => (
+                      <div key={key}>
+                        <label style={{ display: 'block', fontSize: 11, fontWeight: 600, color: '#374151', marginBottom: 3 }}>{label}</label>
+                        <input
+                          value={nuevaFila[key as keyof typeof nuevaFila]}
+                          onChange={e => setNuevaFila(prev => ({ ...prev, [key]: e.target.value }))}
+                          placeholder={placeholder}
+                          style={{ width: '100%', padding: '5px 8px', fontSize: 12, border: '1px solid #d1d5db', borderRadius: 5, boxSizing: 'border-box' as const, color: '#111' }}
+                        />
+                      </div>
+                    ))}
+                    <div>
+                      <label style={{ display: 'block', fontSize: 11, fontWeight: 600, color: '#374151', marginBottom: 3 }}>Materia LIB</label>
+                      <select
+                        value={nuevaFila.libClave}
+                        onChange={e => setNuevaFila(prev => ({ ...prev, libClave: e.target.value }))}
+                        style={{ width: '100%', padding: '5px 8px', fontSize: 12, border: '1px solid #d1d5db', borderRadius: 5, boxSizing: 'border-box' as const, color: '#111' }}
+                      >
+                        <option value="">— seleccionar —</option>
+                        {planData?.planLib.materias.map(m => (
+                          <option key={m.clave} value={m.clave}>{m.nombre} ({m.clave})</option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+                  <div style={{ display: 'flex', gap: 8 }}>
+                    <button
+                      onClick={agregarFila}
+                      disabled={!nuevaFila.libClave || !nuevaFila.inbiNombre}
+                      style={{ padding: '6px 16px', fontSize: 12, fontWeight: 700, borderRadius: 6, cursor: 'pointer', background: '#065f46', color: '#fff', border: 'none', opacity: (!nuevaFila.libClave || !nuevaFila.inbiNombre) ? 0.5 : 1 }}
+                    >
+                      Agregar
+                    </button>
+                    <button
+                      onClick={() => { setFormNueva(false); setNuevaFila({ inbiNombre: '', inbiClave: '', inbiCalif: '', inbiNc: '', libClave: '' }); }}
+                      style={{ padding: '6px 14px', fontSize: 12, borderRadius: 6, cursor: 'pointer', background: '#f1f5f9', color: '#374151', border: '1px solid #d1d5db' }}
+                    >
+                      Cancelar
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+          </>
         )}
       </div>
 
