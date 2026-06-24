@@ -88,6 +88,14 @@ const COLOR_BORDER: Record<EstadoRow, string> = {
 
 // ─── Equivalency logic ─────────────────────────────────────────────────────────
 
+function resolverCalificacion(km: Kardex['materias'][0]): number | string | null {
+  if (km.calificacion != null) return km.calificacion;
+  const texto = `${km.calificacionTexto} ${km.tipo}`.toLowerCase();
+  if (/no\s*acredit/i.test(texto)) return 'No Acreditado';
+  if (/acredit/i.test(texto)) return 'Acreditado';
+  return null;
+}
+
 function calcularFilas(kardex: Kardex | null, planData: PlanData): TablaRow[] {
   const rows: TablaRow[] = [];
   const { equivalencias: eqData } = planData;
@@ -227,7 +235,7 @@ function calcularFilas(kardex: Kardex | null, planData: PlanData): TablaRow[] {
         const estado: EstadoRow = eq.origen.creditos !== destino.creditos ? 'amarillo' : 'verde';
         rows.push({
           estado,
-          inbi: { clave: km.clave, nombre: km.nombre, creditos: eq.origen.creditos, calificacion: km.calificacion, nc: km.nc },
+          inbi: { clave: km.clave, nombre: km.nombre, creditos: eq.origen.creditos, calificacion: resolverCalificacion(km), nc: km.nc },
           lib: { clave: destino.clave, nombre: destino.nombre, creditos: destino.creditos },
         });
         libCubiertasClaves.add(destino.clave);
@@ -243,7 +251,7 @@ function calcularFilas(kardex: Kardex | null, planData: PlanData): TablaRow[] {
         realClavesCubiertas.add(km.clave);
         rows.push({
           estado: 'rojo',
-          inbi: { clave: km.clave, nombre: km.nombre, creditos: sinEq.creditos, calificacion: km.calificacion, nc: km.nc },
+          inbi: { clave: km.clave, nombre: km.nombre, creditos: sinEq.creditos, calificacion: resolverCalificacion(km), nc: km.nc },
           lib: null,
         });
       }
@@ -259,7 +267,7 @@ function calcularFilas(kardex: Kardex | null, planData: PlanData): TablaRow[] {
       if (!todasOriginClaves.has(km.clave)) {
         rows.push({
           estado: 'rojo',
-          inbi: { clave: km.clave, nombre: km.nombre, creditos: km.nc ?? 0, calificacion: km.calificacion, nc: km.nc },
+          inbi: { clave: km.clave, nombre: km.nombre, creditos: km.nc ?? 0, calificacion: resolverCalificacion(km), nc: km.nc },
           lib: null,
         });
       }
@@ -545,8 +553,9 @@ async function generarPdfSolicitud(
     clavLib.forEach(   (l, i) => draw(l, xC2, y - i * LINE_H, 7));
     draw(
       row.inbi?.calificacion == null ? '' :
-      typeof row.inbi.calificacion === 'string' ? 'Acred.' :
-      String(row.inbi.calificacion),
+      typeof row.inbi.calificacion === 'string'
+        ? (String(row.inbi.calificacion).toLowerCase().startsWith('no') ? 'No Acred.' : 'Acred.')
+        : String(row.inbi.calificacion),
       xK1, y, 7,
     );
     draw(row.inbi?.nc           != null ? String(row.inbi.nc)           : '', xN1, y, 7);

@@ -22,8 +22,8 @@
       "destino": { "clave": "V5901", "nombre": "Anatomía", "creditos": 8 }
     },
     {
-      "origen": { "clave": "GLP", "nombre": "Análisis de problemas globales del siglo XX", "creditos": 0 },
-      "destino": { "clave": "GLP", "nombre": "Análisis de problemas globales del siglo XX", "creditos": 0 }
+      "origen": { "clave": "V2455", "nombre": "Análisis de problemas globales del siglo XX", "creditos": 0 },
+      "destino": { "clave": "V2455", "nombre": "Análisis de problemas globales del siglo XX", "creditos": 0 }
     },
     {
       "origen": { "clave": "I5895", "nombre": "Métodos Matemáticos II", "creditos": 8 },
@@ -42,7 +42,7 @@
       "destino": { "clave": "V5902", "nombre": "Circuitos eléctricos", "creditos": 8 }
     },
     {
-      "origen": { "clave": "I7020", "nombre": "Métodos Matemáticos III", "creditos": 8 },
+      "origen": { "clave": "I5896", "nombre": "Seminario de solución de problemas de Métodos Matemáticos II", "creditos": 5 },
       "destino": { "clave": "B056", "nombre": "Álgebra lineal", "creditos": 8 }
     },
     {
@@ -99,7 +99,7 @@
     },
     {
       "origen": { "clave": "I7600", "nombre": "Sistemas Electrónicos", "creditos": 8 },
-      "destino": { "clave": "V3929", "nombre": "Electrónica digital", "creditos": 8 }
+      "destino": { "clave": "V5946", "nombre": "Microelectrónica", "creditos": 8 }
     },
     {
       "origen": { "clave": "I7597", "nombre": "Electrofisiología Molecular II", "creditos": 8 },
@@ -118,28 +118,28 @@
       "destino": { "clave": "V5914", "nombre": "Procesamiento de bioimágenes", "creditos": 8 }
     },
     {
-      "origen": { "clave": "PRAC", "nombre": "Carta de Liberación de Prácticas Profesionales o Comprobantes de experiencia profesional (320 Hrs)", "creditos": 0 },
-      "destino": { "clave": "PRACLIB", "nombre": "Practicas profesionales", "creditos": 20 }
-    },
-    {
-      "origen": { "clave": "TSIBM", "nombre": "Temas Selectos de Ingeniería Biomédica I", "creditos": 0 },
+      "origen": { "clave": "ET356", "nombre": "Temas Selectos de Ingeniería Biomédica I", "creditos": 0 },
       "destino": { "clave": "V5908", "nombre": "Procesos y organización biológica", "creditos": 8 }
     },
     {
-      "origen": { "clave": "TIBM4", "nombre": "Topicos de Ingeniería Biomédica IV", "creditos": 0 },
+      "origen": { "clave": "ET353", "nombre": "Topicos de Ingeniería Biomédica IV", "creditos": 0 },
       "destino": { "clave": "IL361", "nombre": "Fundamentos de inteligencia artificial", "creditos": 8 }
     },
     {
-      "origen": { "clave": "IMED4", "nombre": "Instrumentación Médica IV", "creditos": 0 },
-      "destino": { "clave": "V5918", "nombre": "Tecnología de la información en salud", "creditos": 8 }
+      "origen": { "clave": "ET353", "nombre": "Topicos de Ingeniería Biomédica IV", "creditos": 0 },
+      "destino": { "clave": "IL361", "nombre": "Fundamentos de inteligencia artificial", "creditos": 8 }
     },
     {
-      "origen": { "clave": "TIBM", "nombre": "Topicos de Ingeniería Biomédica", "creditos": 0 },
-      "destino": { "clave": "ESBIO", "nombre": "Estructuras de los sistemas biológicos", "creditos": 8 }
+      "origen": { "clave": "I7599", "nombre": "Electrónica Integrada", "creditos": 8 },
+      "destino": { "clave": "V3929", "nombre": "Electrónica digital", "creditos": 8 }
     },
     {
-      "origen": { "clave": "IMED2", "nombre": "Instrumentación Médica II", "creditos": 0 },
-      "destino": { "clave": "REGBM", "nombre": "Regulación de biomateriales", "creditos": 8 }
+      "origen": { "clave": "ET340", "nombre": "Topicos de Ingeniería Biomédica", "creditos": 0 },
+      "destino": { "clave": "V5907", "nombre": "Estructuras de los sistemas biológicos", "creditos": 8 }
+    },
+    {
+      "origen": { "clave": "ET333", "nombre": "Instrumentación Médica II", "creditos": 0 },
+      "destino": { "clave": "V3866", "nombre": "Regulación de biomateriales", "creditos": 8 }
     }
   ],
   "equivalencias_especiales": [
@@ -153,22 +153,23 @@
     },
     {
       "_nota": "Si el alumno tiene los tres proyectos INBI, también se convalida Proyecto modular en LIB",
-      "tipo_calificacion": "acreditado",
       "origen": [
-        { "clave": "PROYIM", "nombre": "Proyecto de Instrumentación Médica", "creditos": 15 },
-        { "clave": "PROYBH", "nombre": "Proyecto de Biomecánica Humana", "creditos": 15 },
-        { "clave": "PROYEF", "nombre": "Proyecto de Electrofisiologia", "creditos": 15 }
+        { "clave": "I7612", "nombre": "Proyecto de Instrumentación Médica", "creditos": 15 },
+        { "clave": "I7611", "nombre": "Proyecto de Biomecánica Humana", "creditos": 15 },
+        { "clave": "I7613", "nombre": "Proyecto de Electrofisiologia", "creditos": 15 }
       ],
       "destino": { "clave": "PROYMOD", "nombre": "Proyecto modular", "creditos": 3 }
     }
   ],
   "sin_equivalencia": [
-    { "clave": "I5896", "nombre": "Seminario de solución de problemas de Métodos Matemáticos II", "creditos": 5, "razon": "Sin equivalente en LIB" },
+    { "clave": "I7020", "nombre": "Métodos Matemáticos III", "creditos": 8, "razon": "Sin equivalencia en LIB" },
     { "clave": "I7021", "nombre": "Seminario de solución de problemas de Métodos Matemáticos III", "creditos": 5, "razon": "Sin equivalente en LIB" },
-    { "clave": "I7599", "nombre": "Electrónica Integrada", "creditos": 8, "razon": "Sin equivalente en LIB" },
     { "clave": "I7589", "nombre": "Seminario de solución de problemas de Análisis del Movimiento", "creditos": 5, "razon": "Sin equivalente en LIB" },
     { "clave": "I7267", "nombre": "Seminario de solución de problemas de Programación de Sistemas Embebidos", "creditos": 5, "razon": "Sin equivalente en LIB" },
-    { "clave": "FOPTA", "nombre": "Formación Optativa abierta", "creditos": 16, "razon": "Sin equivalente en LIB" },
-    { "clave": "FESPE", "nombre": "Formación Especializante selectiva", "creditos": 16, "razon": "Sin equivalente en LIB" }
+    { "clave": "I9940", "nombre": "Formación Optativa abierta", "creditos": 16, "razon": "Sin equivalente en LIB" },
+    { "clave": "I7613", "nombre": "Proyecto de Electrofisiologia", "creditos": 15, "razon": "Sin equivalente en LIB" },
+    { "clave": "I7611", "nombre": "Proyecto de Biomecánica Humana", "creditos": 15 , "razon": "Sin equivalente en LIB" },
+    {"clave": "I7612", "nombre": "Proyecto de Instrumentación Médica", "creditos": 15, "razon": "Sin equivalente en LIB" },
+    { "clave": "I9939", "nombre": "Formación Especializante selectiva", "creditos": 16, "razon": "Sin equivalente en LIB" }
   ]
 }
