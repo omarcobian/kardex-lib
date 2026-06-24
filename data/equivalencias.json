@@ -153,6 +153,7 @@
     },
     {
       "_nota": "Si el alumno tiene los tres proyectos INBI, también se convalida Proyecto modular en LIB",
+      "tipo_calificacion": "acreditado",
       "origen": [
         { "clave": "I7612", "nombre": "Proyecto de Instrumentación Médica", "creditos": 15 },
         { "clave": "I7611", "nombre": "Proyecto de Biomecánica Humana", "creditos": 15 },
