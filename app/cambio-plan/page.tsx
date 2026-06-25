@@ -50,7 +50,7 @@ type EstadoRow = 'verde' | 'amarillo' | 'rojo' | 'gris' | 'naranja';
 type TablaRow = {
   estado: EstadoRow;
   inbi: { clave: string; nombre: string; creditos: number; calificacion: number | string | null; nc: number | null } | null;
-  lib: { clave: string; nombre: string; creditos: number } | null;
+  lib: { clave: string; nombre: string; creditos: number; calificacion: number | string | null } | null;
 };
 
 type MateriaPendienteDetalle = { clave: string; nombre: string; creditos: number };
