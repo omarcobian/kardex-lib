@@ -71,9 +71,6 @@
     { "clave": "V5950", "nombre": "Diseño de organoides",                                  "creditos": 8,  "semestre": 0, "modulo": 8 },
     { "clave": "V5951","nombre": "Liderazgo estratégico en salud",                        "creditos": 8,  "semestre": 0, "modulo": 9 },
     { "clave": "V5952",  "nombre": "Ingeniería biomédica y sociedad",                       "creditos": 8,  "semestre": 0, "modulo": 9 },
-    { "clave": "V5953","nombre": "Diseño de políticas públicas",                          "creditos": 8,  "semestre": 0, "modulo": 9 },
-    { "clave": "V5954", "nombre": "Tecnología emergente I",                                "creditos": 8,  "semestre": 0, "modulo": 10 },
-    { "clave": "V5955", "nombre": "Tecnología emergente II",                               "creditos": 8,  "semestre": 0, "modulo": 10 },
-    { "clave": "V5956", "nombre": "Tecnología emergente III",                              "creditos": 8,  "semestre": 0, "modulo": 10 }
+    { "clave": "V5953","nombre": "Diseño de políticas públicas",                          "creditos": 8,  "semestre": 0, "modulo": 9 }
   ]
 }
