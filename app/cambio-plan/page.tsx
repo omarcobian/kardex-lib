@@ -159,16 +159,24 @@ function calcularFilas(kardex: Kardex | null, planData: PlanData): TablaRow[] {
     const somePresent = kms.some(km => km != null);
 
     if (allPresent) {
-      // Calificación: 'Acreditado' si tipo_calificacion === 'acreditado', promedio en otro caso.
-      let calificacion: number | string | null;
-      if (esp.tipo_calificacion === 'acreditado') {
-        calificacion = 'Acreditado';
-      } else {
-        const cals = kms.map(km => km!.calificacion).filter((c): c is number => c != null);
-        calificacion = cals.length > 0
-          ? Math.round(cals.reduce((s, c) => s + c, 0) / cals.length)
+      // Calificaciones de los orígenes (plan viejo). Para las equivalencias
+      // especiales hay DOS (o más) calificaciones: se muestran TODAS.
+      const calsOrigen = kms.map(km => resolverCalificacion(km!));
+      const acreditado = esp.tipo_calificacion === 'acreditado';
+      // Columna de calificación del plan viejo: ambas notas ("85 / 90").
+      const calificacionInbi: number | string | null = acreditado
+        ? 'Acreditado'
+        : calsOrigen.some(c => c != null)
+          ? calsOrigen.map(c => (c == null ? '—' : c)).join(' / ')
           : null;
-      }
+      // Calificación que se asienta en el plan nuevo (destino): promedio de las
+      // numéricas (o 'Acreditado').
+      const nums = calsOrigen.filter((c): c is number => typeof c === 'number');
+      const calificacionLib: number | string | null = acreditado
+        ? 'Acreditado'
+        : nums.length > 0
+          ? Math.round(nums.reduce((s, c) => s + c, 0) / nums.length)
+          : null;
       // NC: suma de los NC del kardex; si viene null (Acreditado sin NC en PDF)
       // se usa el crédito declarado en equivalencias.json para ese origen.
       const nc = kms.reduce((sum, km, i) => sum + (km!.nc ?? esp.origen[i].creditos ?? 0), 0);
@@ -179,10 +187,10 @@ function calcularFilas(kardex: Kardex | null, planData: PlanData): TablaRow[] {
           clave: esp.origen.map(o => o.clave).join(' + '),
           nombre: esp.origen.map(o => o.nombre).join(' + '),
           creditos: esp.origen.reduce((sum, o) => sum + o.creditos, 0),
-          calificacion,
+          calificacion: calificacionInbi,
           nc,
         },
-        lib: { clave: esp.destino.clave, nombre: esp.destino.nombre, creditos: esp.destino.creditos },
+        lib: { clave: esp.destino.clave, nombre: esp.destino.nombre, creditos: esp.destino.creditos, calificacion: calificacionLib },
       });
       libCubiertasClaves.add(esp.destino.clave);
       for (const km of kms as NonNullable<(typeof kms)[0]>[]) realClavesCubiertas.add(km.clave);
