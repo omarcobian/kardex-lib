@@ -439,23 +439,34 @@ async function generarPdfSolicitud(
 
   // ── Column geometry ────────────────────────────────────────────────────────
 
-  const COL_ASIG_W  = Math.floor(CONTENT_W * 0.28);
-  const COL_CLAVE_W = 48;
-  const COL_CALIF_W = 40;
-  const COL_NC_W    = 28;
-  const SEP_W       = 10;
-  const COL_ASIG2_W = Math.floor(CONTENT_W * 0.25);
-  const COL_CLAVE2_W = 48;
+  const COL_ASIG_W   = 130;
+  const COL_CLAVE_W  = 46;
+  const COL_CALIF_W  = 38;
+  const COL_NC_W     = 24;
+  const SEP_W        = 12;
+  const COL_ASIG2_W  = 119;
+  const COL_CLAVE2_W = 46;
+  const COL_CALIF2_W = 38;
 
-  const xA1  = LEFT;
-  const xC1  = xA1  + COL_ASIG_W;
-  const xK1  = xC1  + COL_CLAVE_W;
-  const xN1  = xK1  + COL_CALIF_W;
-  const xSep = xN1  + COL_NC_W + 4;
-  const xA2  = xSep + SEP_W;
-  const xC2  = xA2  + COL_ASIG2_W;
-  const xK2  = xC2  + COL_CLAVE2_W;
+  const xA1  = LEFT;                     // INBI Asignatura
+  const xC1  = xA1  + COL_ASIG_W;        // INBI Clave
+  const xK1  = xC1  + COL_CLAVE_W;       // INBI Calif 
+  const xN1  = xK1  + COL_CALIF_W;       // INBI NC
+  const xA2  = xN1  + COL_NC_W + SEP_W;  // LIB Asignatura
+  const xC2  = xA2  + COL_ASIG2_W;       // LIB Clave
+  const xK2  = xC2  + COL_CLAVE2_W;      // LIB Calif 
+  const xN2  = xK2  + COL_CALIF2_W;      // LIB NC
 
+  // Calificación a texto: número tal cual, "Acreditado"→"Acred.", y deja pasar
+  // las combinadas de equivalencias especiales ("85 / 90").
+  const fmtCalif = (c: number | string | null | undefined): string => {
+    if (c == null) return '';
+    if (typeof c === 'number') return String(c);
+    const low = c.toLowerCase();
+    if (low.startsWith('no acred')) return 'No Acred.';
+    if (low.startsWith('acred')) return 'Acred.';
+    return c;
+  };
   const ROW_H  = 11;
   const LINE_H = 8.5;
 
@@ -474,7 +485,8 @@ async function generarPdfSolicitud(
     draw('NC',         xN1, y, 7, true);
     draw('Asignatura', xA2, y, 7, true);
     draw('Clave',      xC2, y, 7, true);
-    draw('NC',         xK2, y, 7, true);
+    draw('Calif',      xK2, y, 7, true);
+    draw('NC',         xN2, y, 7, true);
     y -= ROW_H;
 
     hline(y + 10, 0.5, 0.3);
