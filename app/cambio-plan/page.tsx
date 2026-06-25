@@ -245,7 +245,7 @@ function calcularFilas(kardex: Kardex | null, planData: PlanData): TablaRow[] {
         rows.push({
           estado,
           inbi: { clave: km.clave, nombre: km.nombre, creditos: eq.origen.creditos, calificacion: calOrigen, nc: km.nc },
-          lib: { clave: destino.clave, nombre: destino.nombre, creditos: destino.creditos, calificacion: calOrigen },
+          lib: { clave: libMateria.clave, nombre: libMateria.nombre, creditos: libMateria.creditos, calificacion },
         });
         libCubiertasClaves.add(destino.clave);
       }
