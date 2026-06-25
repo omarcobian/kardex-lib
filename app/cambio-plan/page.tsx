@@ -238,13 +238,14 @@ function calcularFilas(kardex: Kardex | null, planData: PlanData): TablaRow[] {
       realClavesCubiertas.add(km.clave);
       // Un origen puede convalidar uno o varios destinos (p.ej. los proyectos INBI).
       const destinos = Array.isArray(eq.destino) ? eq.destino : [eq.destino];
+      const calOrigen = resolverCalificacion(km); // la calificación se arrastra al plan nuevo
       for (const destino of destinos) {
         // Credits differ → partial equivalence (amarillo); equal → direct (verde)
         const estado: EstadoRow = eq.origen.creditos !== destino.creditos ? 'amarillo' : 'verde';
         rows.push({
           estado,
-          inbi: { clave: km.clave, nombre: km.nombre, creditos: eq.origen.creditos, calificacion: resolverCalificacion(km), nc: km.nc },
-          lib: { clave: destino.clave, nombre: destino.nombre, creditos: destino.creditos },
+          inbi: { clave: km.clave, nombre: km.nombre, creditos: eq.origen.creditos, calificacion: calOrigen, nc: km.nc },
+          lib: { clave: destino.clave, nombre: destino.nombre, creditos: destino.creditos, calificacion: calOrigen },
         });
         libCubiertasClaves.add(destino.clave);
       }
