@@ -50,7 +50,7 @@ type EstadoRow = 'verde' | 'amarillo' | 'rojo' | 'gris' | 'naranja';
 type TablaRow = {
   estado: EstadoRow;
   inbi: { clave: string; nombre: string; creditos: number; calificacion: number | string | null; nc: number | null } | null;
-  lib: { clave: string; nombre: string; creditos: number; calificacion: number | string | null } | null;
+  lib: { clave: string; nombre: string; creditos: number; calificacion?: number | string | null } | null;
 };
 
 type MateriaPendienteDetalle = { clave: string; nombre: string; creditos: number };
@@ -159,16 +159,24 @@ function calcularFilas(kardex: Kardex | null, planData: PlanData): TablaRow[] {
     const somePresent = kms.some(km => km != null);
 
     if (allPresent) {
-      // Calificación: 'Acreditado' si tipo_calificacion === 'acreditado', promedio en otro caso.
-      let calificacion: number | string | null;
-      if (esp.tipo_calificacion === 'acreditado') {
-        calificacion = 'Acreditado';
-      } else {
-        const cals = kms.map(km => km!.calificacion).filter((c): c is number => c != null);
-        calificacion = cals.length > 0
-          ? Math.round(cals.reduce((s, c) => s + c, 0) / cals.length)
+      // Calificaciones de los orígenes (plan viejo). Para las equivalencias
+      // especiales hay DOS (o más) calificaciones: se muestran TODAS.
+      const calsOrigen = kms.map(km => resolverCalificacion(km!));
+      const acreditado = esp.tipo_calificacion === 'acreditado';
+      // Columna de calificación del plan viejo: ambas notas ("85 / 90").
+      const calificacionInbi: number | string | null = acreditado
+        ? 'Acreditado'
+        : calsOrigen.some(c => c != null)
+          ? calsOrigen.map(c => (c == null ? '—' : c)).join(' / ')
           : null;
-      }
+      // Calificación que se asienta en el plan nuevo (destino): promedio de las
+      // numéricas (o 'Acreditado').
+      const nums = calsOrigen.filter((c): c is number => typeof c === 'number');
+      const calificacionLib: number | string | null = acreditado
+        ? 'Acreditado'
+        : nums.length > 0
+          ? Math.round(nums.reduce((s, c) => s + c, 0) / nums.length)
+          : null;
       // NC: suma de los NC del kardex; si viene null (Acreditado sin NC en PDF)
       // se usa el crédito declarado en equivalencias.json para ese origen.
       const nc = kms.reduce((sum, km, i) => sum + (km!.nc ?? esp.origen[i].creditos ?? 0), 0);
@@ -179,10 +187,10 @@ function calcularFilas(kardex: Kardex | null, planData: PlanData): TablaRow[] {
           clave: esp.origen.map(o => o.clave).join(' + '),
           nombre: esp.origen.map(o => o.nombre).join(' + '),
           creditos: esp.origen.reduce((sum, o) => sum + o.creditos, 0),
-          calificacion,
+          calificacion: calificacionInbi,
           nc,
         },
-        lib: { clave: esp.destino.clave, nombre: esp.destino.nombre, creditos: esp.destino.creditos },
+        lib: { clave: esp.destino.clave, nombre: esp.destino.nombre, creditos: esp.destino.creditos, calificacion: calificacionLib },
       });
       libCubiertasClaves.add(esp.destino.clave);
       for (const km of kms as NonNullable<(typeof kms)[0]>[]) realClavesCubiertas.add(km.clave);
@@ -230,13 +238,14 @@ function calcularFilas(kardex: Kardex | null, planData: PlanData): TablaRow[] {
       realClavesCubiertas.add(km.clave);
       // Un origen puede convalidar uno o varios destinos (p.ej. los proyectos INBI).
       const destinos = Array.isArray(eq.destino) ? eq.destino : [eq.destino];
+      const calOrigen = resolverCalificacion(km); // la calificación se arrastra al plan nuevo
       for (const destino of destinos) {
         // Credits differ → partial equivalence (amarillo); equal → direct (verde)
         const estado: EstadoRow = eq.origen.creditos !== destino.creditos ? 'amarillo' : 'verde';
         rows.push({
           estado,
-          inbi: { clave: km.clave, nombre: km.nombre, creditos: eq.origen.creditos, calificacion: resolverCalificacion(km), nc: km.nc },
-          lib: { clave: destino.clave, nombre: destino.nombre, creditos: destino.creditos },
+          inbi: { clave: km.clave, nombre: km.nombre, creditos: eq.origen.creditos, calificacion: calOrigen, nc: km.nc },
+          lib: { clave: destino.clave, nombre: destino.nombre, creditos: destino.creditos, calificacion: calOrigen },
         });
         libCubiertasClaves.add(destino.clave);
       }
@@ -430,22 +439,34 @@ async function generarPdfSolicitud(
 
   // ── Column geometry ────────────────────────────────────────────────────────
 
-  const COL_ASIG_W  = Math.floor(CONTENT_W * 0.28);
-  const COL_CLAVE_W = 48;
-  const COL_CALIF_W = 40;
-  const COL_NC_W    = 28;
-  const SEP_W       = 10;
-  const COL_ASIG2_W = Math.floor(CONTENT_W * 0.25);
-  const COL_CLAVE2_W = 48;
+  const COL_ASIG_W   = 130;
+  const COL_CLAVE_W  = 46;
+  const COL_CALIF_W  = 38;
+  const COL_NC_W     = 24;
+  const SEP_W        = 12;
+  const COL_ASIG2_W  = 119;
+  const COL_CLAVE2_W = 46;
+  const COL_CALIF2_W = 38;
 
-  const xA1  = LEFT;
-  const xC1  = xA1  + COL_ASIG_W;
-  const xK1  = xC1  + COL_CLAVE_W;
-  const xN1  = xK1  + COL_CALIF_W;
-  const xSep = xN1  + COL_NC_W + 4;
-  const xA2  = xSep + SEP_W;
-  const xC2  = xA2  + COL_ASIG2_W;
-  const xK2  = xC2  + COL_CLAVE2_W;
+  const xA1  = LEFT;                     // INBI Asignatura
+  const xC1  = xA1  + COL_ASIG_W;        // INBI Clave
+  const xK1  = xC1  + COL_CLAVE_W;       // INBI Calif (plan viejo)
+  const xN1  = xK1  + COL_CALIF_W;       // INBI NC
+  const xA2  = xN1  + COL_NC_W + SEP_W;  // LIB Asignatura
+  const xC2  = xA2  + COL_ASIG2_W;       // LIB Clave
+  const xK2  = xC2  + COL_CLAVE2_W;      // LIB Calif (plan nuevo)
+  const xN2  = xK2  + COL_CALIF2_W;      // LIB NC
+
+  // Calificación a texto: número tal cual, "Acreditado"→"Acred.", y deja pasar
+  // las combinadas de equivalencias especiales ("85 / 90").
+  const fmtCalif = (c: number | string | null | undefined): string => {
+    if (c == null) return '';
+    if (typeof c === 'number') return String(c);
+    const low = c.toLowerCase();
+    if (low.startsWith('no acred')) return 'No Acred.';
+    if (low.startsWith('acred')) return 'Acred.';
+    return c;
+  };
 
   const ROW_H  = 11;
   const LINE_H = 8.5;
@@ -465,7 +486,8 @@ async function generarPdfSolicitud(
     draw('NC',         xN1, y, 7, true);
     draw('Asignatura', xA2, y, 7, true);
     draw('Clave',      xC2, y, 7, true);
-    draw('NC',         xK2, y, 7, true);
+    draw('Calif.',     xK2, y, 7, true);
+    draw('NC',         xN2, y, 7, true);
     y -= ROW_H;
 
     hline(y + 10, 0.5, 0.3);
@@ -551,15 +573,10 @@ async function generarPdfSolicitud(
     libLineas.forEach( (l, i) => draw(l, xA2, y - i * LINE_H, 7));
     clavInbi.forEach(  (l, i) => draw(l, xC1, y - i * LINE_H, 7));
     clavLib.forEach(   (l, i) => draw(l, xC2, y - i * LINE_H, 7));
-    draw(
-      row.inbi?.calificacion == null ? '' :
-      typeof row.inbi.calificacion === 'string'
-        ? (String(row.inbi.calificacion).toLowerCase().startsWith('no') ? 'No Acred.' : 'Acred.')
-        : String(row.inbi.calificacion),
-      xK1, y, 7,
-    );
-    draw(row.inbi?.nc           != null ? String(row.inbi.nc)           : '', xN1, y, 7);
-    draw(row.lib?.creditos      != null ? String(row.lib.creditos)      : '', xK2, y, 7);
+    draw(fmtCalif(row.inbi?.calificacion), xK1, y, 7);
+    draw(row.inbi?.nc      != null ? String(row.inbi.nc)      : '', xN1, y, 7);
+    draw(fmtCalif(row.lib?.calificacion), xK2, y, 7);
+    draw(row.lib?.creditos != null ? String(row.lib.creditos) : '', xN2, y, 7);
 
     y -= rowH;
     hline(y + 9, 0.2, 0.85);
@@ -785,7 +802,7 @@ export default function CambioPlan() {
         calificacion,
         nc,
       },
-      lib: { clave: libMateria.clave, nombre: libMateria.nombre, creditos: libMateria.creditos },
+      lib: { clave: libMateria.clave, nombre: libMateria.nombre, creditos: libMateria.creditos, calificacion },
     };
     setFilasOverride(prev => [...(prev ?? filas), newRow]);
     setNuevaFila({ inbiNombre: '', inbiClave: '', inbiCalif: '', inbiNc: '', libClave: '' });
@@ -1036,7 +1053,7 @@ export default function CambioPlan() {
                   <th colSpan={4} style={{ ...th, textAlign: 'center', borderRight: '3px solid #e5e7eb' }}>
                     Programa Origen: Ingeniería Biomédica (INBI)
                   </th>
-                  <th colSpan={3} style={{ ...th, textAlign: 'center' }}>
+                  <th colSpan={4} style={{ ...th, textAlign: 'center' }}>
                     Programa Destino: Licenciatura en Ingeniería Biomédica (LIB)
                   </th>
                 </tr>
@@ -1044,15 +1061,15 @@ export default function CambioPlan() {
                   {['Asignatura', 'Clave', 'Calificación', 'NC'].map(h => (
                     <th key={h} style={{ ...th, fontSize: 10, background: '#334155', borderRight: h === 'NC' ? '3px solidrgb(0, 0, 0)' : undefined }}>{h}</th>
                   ))}
-                  {['Asignatura', 'Clave', 'NC'].map(h => (
-                    <th key={h} style={{ ...th, fontSize: 10, background: '#334155' }}>{h}</th>
+                  {['Asignatura', 'Clave', 'Calificación', 'NC'].map(h => (
+                    <th key={`lib-${h}`} style={{ ...th, fontSize: 10, background: '#334155' }}>{h}</th>
                   ))}
                 </tr>
               </thead>
               <tbody>
                 {filasActivas.length === 0 ? (
                   <tr>
-                    <td colSpan={7} style={{ ...td, textAlign: 'center', padding: 20 }}>
+                    <td colSpan={8} style={{ ...td, textAlign: 'center', padding: 20 }}>
                       Sube un kardex para ver las equivalencias
                     </td>
                   </tr>
@@ -1082,6 +1099,9 @@ export default function CambioPlan() {
                       </td>
                       <td style={{ ...td, maxWidth: 220 }}>{row.lib?.nombre ?? '—'}</td>
                       <td style={{ ...td, fontFamily: 'monospace', fontSize: 11 }}>{row.lib?.clave ?? '—'}</td>
+                      <td style={{ ...td, textAlign: 'right' }}>
+                        {row.lib?.calificacion != null ? row.lib.calificacion : '—'}
+                      </td>
                       <td style={{ ...td, textAlign: 'right' }}>
                         {row.lib?.creditos != null ? row.lib.creditos : '—'}
                       </td>
