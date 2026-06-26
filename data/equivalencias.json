@@ -168,9 +168,6 @@
     { "clave": "I7589", "nombre": "Seminario de solución de problemas de Análisis del Movimiento", "creditos": 5, "razon": "Sin equivalente en LIB" },
     { "clave": "I7267", "nombre": "Seminario de solución de problemas de Programación de Sistemas Embebidos", "creditos": 5, "razon": "Sin equivalente en LIB" },
     { "clave": "I9940", "nombre": "Formación Optativa abierta", "creditos": 16, "razon": "Sin equivalente en LIB" },
-    { "clave": "I7613", "nombre": "Proyecto de Electrofisiologia", "creditos": 15, "razon": "Sin equivalente en LIB" },
-    { "clave": "I7611", "nombre": "Proyecto de Biomecánica Humana", "creditos": 15 , "razon": "Sin equivalente en LIB" },
-    {"clave": "I7612", "nombre": "Proyecto de Instrumentación Médica", "creditos": 15, "razon": "Sin equivalente en LIB" },
     { "clave": "I9939", "nombre": "Formación Especializante selectiva", "creditos": 16, "razon": "Sin equivalente en LIB" }
   ]
 }
