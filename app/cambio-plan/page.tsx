@@ -333,6 +333,23 @@ function calcularContabilizados(
   return { materias, nc };
 }
 
+// Devuelve las materias del plan INBI que el alumno no cursó, hasta MAX_NC_POR_ESTUDIANTE.
+function calcularContabilizadosInbi(
+  kardex: Kardex,
+  planData: PlanData,
+): { materias: MateriaPendienteDetalle[]; nc: number } {
+  const kardexClaves = new Set(kardex.materias.map(m => m.clave));
+  let nc = 0;
+  const materias: MateriaPendienteDetalle[] = [];
+  for (const m of planData.planInbi.materias) {
+    if (kardexClaves.has(m.clave)) continue;
+    if (nc + m.creditos > MAX_NC_POR_ESTUDIANTE) break;
+    materias.push({ clave: m.clave, nombre: m.nombre, creditos: m.creditos });
+    nc += m.creditos;
+  }
+  return { materias, nc };
+}
+
 // ─── Server storage helpers ───────────────────────────────────────────────────
 
 type FaltantesGlobalEntry = { nombre: string; creditos: number; alumnos: string[] };
@@ -374,6 +391,22 @@ async function guardarFaltantesGlobal(d: Record<string, FaltantesGlobalEntry>) {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ key: 'faltantes_global', data: d }),
+  });
+}
+
+async function leerDemandaInbi(): Promise<Record<string, DemandaEntry>> {
+  try {
+    const res = await fetch('/api/storage?key=demanda_inbi');
+    const json = await res.json();
+    return (json.data as Record<string, DemandaEntry>) ?? {};
+  } catch { return {}; }
+}
+
+async function guardarDemandaInbi(d: Record<string, DemandaEntry>) {
+  await fetch('/api/storage', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ key: 'demanda_inbi', data: d }),
   });
 }
 
@@ -829,6 +862,21 @@ export default function CambioPlan() {
       if (faltantes[k].alumnos.length === 0) delete faltantes[k];
     }
     await guardarFaltantesGlobal(faltantes);
+
+    // Cupos estimados del plan INBI (materias del plan antiguo no cursadas, hasta 50 NC)
+    const { materias: materiasInbi } = calcularContabilizadosInbi(kardex, planData);
+    const demandaInbi = await leerDemandaInbi();
+    for (const entry of Object.values(demandaInbi)) {
+      entry.alumnos = entry.alumnos.filter(a => a !== codigo);
+    }
+    for (const m of materiasInbi) {
+      if (!demandaInbi[m.clave]) demandaInbi[m.clave] = { nombre: m.nombre, creditos: m.creditos, alumnos: [] };
+      if (!demandaInbi[m.clave].alumnos.includes(codigo)) demandaInbi[m.clave].alumnos.push(codigo);
+    }
+    for (const k of Object.keys(demandaInbi)) {
+      if (demandaInbi[k].alumnos.length === 0) delete demandaInbi[k];
+    }
+    await guardarDemandaInbi(demandaInbi);
   }, [kardex, planData, filasActivas]);
 
   // ── Edición manual: eliminar / agregar fila ───────────────────────────────────

@@ -4,6 +4,7 @@ import { readData, writeData, deleteData } from '@/lib/storage';
 const ALLOWED_KEYS: Record<string, string> = {
   conteo: 'conteo.json',
   demanda: 'demanda.json',
+  demanda_inbi: 'demanda-inbi.json',
   faltantes_global: 'faltantes-global.json',
   folios: 'folios.json',
 };

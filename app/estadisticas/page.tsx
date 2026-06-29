@@ -113,6 +113,7 @@ export default function EstadisticasPage() {
   const [conteo, setConteo] = useState<ConteoStorage | null>(null);
   const [demanda, setDemanda] = useState<Record<string, DemandaEntry>>({});
   const [faltantesGlobal, setFaltantesGlobal] = useState<Record<string, FaltantesGlobalEntry>>({});
+  const [demandaInbi, setDemandaInbi] = useState<Record<string, DemandaEntry>>({});
   const [folio, setFolio] = useState(0);
   const [totalLib, setTotalLib] = useState<number | null>(null);
   const [mounted, setMounted] = useState(false);
@@ -129,6 +130,7 @@ export default function EstadisticasPage() {
         if (all.folios != null) setFolio(all.folios as number);
         if (all.demanda) setDemanda(all.demanda as Record<string, DemandaEntry>);
         if (all.faltantes_global) setFaltantesGlobal(all.faltantes_global as Record<string, FaltantesGlobalEntry>);
+        if (all.demanda_inbi) setDemandaInbi(all.demanda_inbi as Record<string, DemandaEntry>);
       })
       .catch(() => {});
 
@@ -141,13 +143,16 @@ export default function EstadisticasPage() {
   if (!mounted) return null;
 
   const covered = totalLib != null && conteo != null ? totalLib - conteo.total : null;
-  const hasDatos = conteo !== null || folio > 0 || Object.keys(demanda).length > 0 || Object.keys(faltantesGlobal).length > 0;
+  const hasDatos = conteo !== null || folio > 0 || Object.keys(demanda).length > 0 || Object.keys(faltantesGlobal).length > 0 || Object.keys(demandaInbi).length > 0;
 
   const filteredMaterias = conteo?.materias.filter(m =>
     m.nombre.toLowerCase().includes(searchQuery.toLowerCase())
   ) ?? [];
 
   const demandaOrdenada = Object.entries(demanda)
+    .sort(([, a], [, b]) => b.alumnos.length - a.alumnos.length);
+
+  const demandaInbiOrdenada = Object.entries(demandaInbi)
     .sort(([, a], [, b]) => b.alumnos.length - a.alumnos.length);
 
   const faltantesOrdenadas = Object.entries(faltantesGlobal)
@@ -158,6 +163,7 @@ export default function EstadisticasPage() {
     setConteo(null);
     setFolio(0);
     setDemanda({});
+    setDemandaInbi({});
     setFaltantesGlobal({});
     setCleared(true);
   };
@@ -488,6 +494,60 @@ export default function EstadisticasPage() {
               </thead>
               <tbody>
                 {demandaOrdenada.map(([clave, entry], i) => (
+                  <tr key={clave} style={{ background: i % 2 === 0 ? '#fff' : '#f9fafb' }}>
+                    <td style={{ ...tdStyle, color: '#9ca3af', fontWeight: 700 }}>{i + 1}</td>
+                    <td style={tdStyle}>{entry.nombre}</td>
+                    <td style={{ ...tdStyle, textAlign: 'center' as const, color: '#6b7280' }}>{entry.creditos}</td>
+                    <td style={{ ...tdStyle, textAlign: 'center' as const }}>
+                      <span style={{
+                        display: 'inline-block',
+                        padding: '2px 10px',
+                        background: entry.alumnos.length >= 3 ? '#fee2e2' : entry.alumnos.length === 2 ? '#fef9c3' : '#dbeafe',
+                        color: entry.alumnos.length >= 3 ? '#991b1b' : entry.alumnos.length === 2 ? '#713f12' : '#1e40af',
+                        borderRadius: 12,
+                        fontSize: 13,
+                        fontWeight: 800,
+                      }}>
+                        {entry.alumnos.length}
+                      </span>
+                    </td>
+                    <td style={{ ...tdStyle, color: '#6b7280', fontSize: 11 }}>
+                      {entry.alumnos.join(', ')}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {/* ── Sección 4b — Cupos estimados plan antiguo (INBI) ─────────────── */}
+      {demandaInbiOrdenada.length > 0 && (
+        <div style={card}>
+          <h2 style={sectionTitle}>
+            Cupos Estimados Plan Antiguo (INBI) — Próximo Semestre
+            <span style={{ marginLeft: 8, fontSize: 12, fontWeight: 400, color: '#6b7280' }}>
+              ({demandaInbiOrdenada.length} materias · {new Set(demandaInbiOrdenada.flatMap(([, e]) => e.alumnos)).size} alumnos)
+            </span>
+          </h2>
+          <p style={{ margin: '0 0 16px', fontSize: 13, color: '#6b7280' }}>
+            Materias del plan INBI que los alumnos no han cursado (hasta {50} NC por alumno).
+            El contador indica cuántos alumnos necesitan esa materia el siguiente semestre.
+          </p>
+          <div style={{ overflowX: 'auto' }}>
+            <table style={{ borderCollapse: 'collapse', width: '100%' }}>
+              <thead>
+                <tr>
+                  <th style={{ ...th, width: 36 }}>#</th>
+                  <th style={th}>Materia del Plan INBI</th>
+                  <th style={{ ...th, width: 60, textAlign: 'center' as const }}>NC</th>
+                  <th style={{ ...th, width: 90, textAlign: 'center' as const }}>Cupos</th>
+                  <th style={th}>Alumnos</th>
+                </tr>
+              </thead>
+              <tbody>
+                {demandaInbiOrdenada.map(([clave, entry], i) => (
                   <tr key={clave} style={{ background: i % 2 === 0 ? '#fff' : '#f9fafb' }}>
                     <td style={{ ...tdStyle, color: '#9ca3af', fontWeight: 700 }}>{i + 1}</td>
                     <td style={tdStyle}>{entry.nombre}</td>
