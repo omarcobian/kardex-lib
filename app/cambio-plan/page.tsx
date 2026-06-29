@@ -333,55 +333,76 @@ function calcularContabilizados(
   return { materias, nc };
 }
 
-// ─── LocalStorage helpers ──────────────────────────────────────────────────────
-
-function guardarConteo(conteo: ConteoStorage) {
-  localStorage.setItem('cambio_plan_conteo_pendientes', JSON.stringify(conteo));
-}
-
-function leerDemanda(): Record<string, DemandaEntry> {
-  try {
-    const raw = localStorage.getItem('cambio_plan_demanda');
-    return raw ? (JSON.parse(raw) as Record<string, DemandaEntry>) : {};
-  } catch { return {}; }
-}
-
-function guardarDemanda(d: Record<string, DemandaEntry>) {
-  localStorage.setItem('cambio_plan_demanda', JSON.stringify(d));
-}
+// ─── Server storage helpers ───────────────────────────────────────────────────
 
 type FaltantesGlobalEntry = { nombre: string; creditos: number; alumnos: string[] };
 
-function leerFaltantesGlobal(): Record<string, FaltantesGlobalEntry> {
+async function guardarConteo(conteo: ConteoStorage) {
+  await fetch('/api/storage', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ key: 'conteo', data: conteo }),
+  });
+}
+
+async function leerDemanda(): Promise<Record<string, DemandaEntry>> {
   try {
-    const raw = localStorage.getItem('materias_faltantes_global');
-    return raw ? (JSON.parse(raw) as Record<string, FaltantesGlobalEntry>) : {};
+    const res = await fetch('/api/storage?key=demanda');
+    const json = await res.json();
+    return (json.data as Record<string, DemandaEntry>) ?? {};
   } catch { return {}; }
 }
 
-function guardarFaltantesGlobal(d: Record<string, FaltantesGlobalEntry>) {
-  localStorage.setItem('materias_faltantes_global', JSON.stringify(d));
+async function guardarDemanda(d: Record<string, DemandaEntry>) {
+  await fetch('/api/storage', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ key: 'demanda', data: d }),
+  });
 }
 
-function leerConteo(): ConteoStorage | null {
+async function leerFaltantesGlobal(): Promise<Record<string, FaltantesGlobalEntry>> {
   try {
-    const raw = localStorage.getItem('cambio_plan_conteo_pendientes');
-    return raw ? (JSON.parse(raw) as ConteoStorage) : null;
+    const res = await fetch('/api/storage?key=faltantes_global');
+    const json = await res.json();
+    return (json.data as Record<string, FaltantesGlobalEntry>) ?? {};
+  } catch { return {}; }
+}
+
+async function guardarFaltantesGlobal(d: Record<string, FaltantesGlobalEntry>) {
+  await fetch('/api/storage', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ key: 'faltantes_global', data: d }),
+  });
+}
+
+async function leerConteo(): Promise<ConteoStorage | null> {
+  try {
+    const res = await fetch('/api/storage?key=conteo');
+    const json = await res.json();
+    return (json.data as ConteoStorage) ?? null;
   } catch {
     return null;
   }
 }
 
-function leerFolio(): number {
+async function leerFolio(): Promise<number> {
   try {
-    return parseInt(localStorage.getItem('folio_solicitudes') ?? '0', 10) || 0;
+    const res = await fetch('/api/storage?key=folios');
+    const json = await res.json();
+    return (json.data as number) ?? 0;
   } catch {
     return 0;
   }
 }
 
-function guardarFolio(n: number) {
-  localStorage.setItem('folio_solicitudes', String(n));
+async function guardarFolio(n: number) {
+  await fetch('/api/storage', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ key: 'folios', data: n }),
+  });
 }
 
 // ─── Date helpers ──────────────────────────────────────────────────────────────
@@ -660,6 +681,7 @@ export default function CambioPlan() {
   const [planError, setPlanError] = useState<string | null>(null);
   const [isDragging, setIsDragging] = useState(false);
   const [conteoPrevio, setConteoPrevio] = useState<ConteoStorage | null>(null);
+  const [folioActual, setFolioActual] = useState(0);
   const [generatingPdf, setGeneratingPdf] = useState(false);
   const [pdfError, setPdfError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -678,7 +700,8 @@ export default function CambioPlan() {
       .then((data: PlanData) => setPlanData(data))
       .catch(err => setPlanError((err as Error).message));
 
-    setConteoPrevio(leerConteo());
+    leerConteo().then(c => setConteoPrevio(c));
+    leerFolio().then(f => setFolioActual(f));
   }, []);
 
   // Reset edición manual cuando se sube un kardex nuevo
@@ -760,7 +783,7 @@ export default function CambioPlan() {
 
   // ── Conteo ────────────────────────────────────────────────────────────────────
 
-  const actualizarConteo = useCallback(() => {
+  const actualizarConteo = useCallback(async () => {
     if (!kardex || !planData) return;
     const { materias, nc } = calcularContabilizados(filas, planData);
     const codigo = kardex.estudiante.codigo ?? '';
@@ -771,11 +794,11 @@ export default function CambioPlan() {
       ncContabilizados: nc,
       timestamp: new Date().toISOString(),
     };
-    guardarConteo(conteo);
+    await guardarConteo(conteo);
     setConteoPrevio(conteo);
 
     // Actualizar mapa global de demanda (acumula todos los alumnos procesados)
-    const demanda = leerDemanda();
+    const demanda = await leerDemanda();
     // Limpiar entradas previas de este alumno antes de re-añadir
     for (const entry of Object.values(demanda)) {
       entry.alumnos = entry.alumnos.filter(a => a !== codigo);
@@ -788,13 +811,13 @@ export default function CambioPlan() {
     for (const k of Object.keys(demanda)) {
       if (demanda[k].alumnos.length === 0) delete demanda[k];
     }
-    guardarDemanda(demanda);
+    await guardarDemanda(demanda);
 
     // Contador global de materias faltantes (TODAS, sin límite de NC)
     const todasPendientes = planData.planLib.materias.filter(
       m => !new Set(filas.filter(f => f.lib && (f.estado === 'verde' || f.estado === 'amarillo')).map(f => f.lib!.clave)).has(m.clave),
     );
-    const faltantes = leerFaltantesGlobal();
+    const faltantes = await leerFaltantesGlobal();
     for (const entry of Object.values(faltantes)) {
       entry.alumnos = entry.alumnos.filter(a => a !== codigo);
     }
@@ -805,7 +828,7 @@ export default function CambioPlan() {
     for (const k of Object.keys(faltantes)) {
       if (faltantes[k].alumnos.length === 0) delete faltantes[k];
     }
-    guardarFaltantesGlobal(faltantes);
+    await guardarFaltantesGlobal(faltantes);
   }, [kardex, planData, filasActivas]);
 
   // ── Edición manual: eliminar / agregar fila ───────────────────────────────────
@@ -846,7 +869,7 @@ export default function CambioPlan() {
     setGeneratingPdf(true);
     setPdfError(null);
     try {
-      const folio = leerFolio() + 1;
+      const folio = (await leerFolio()) + 1;
       const pdfBytes = await generarPdfSolicitud(kardex, filasActivas, folio);
       const blob = new Blob([pdfBytes as unknown as BlobPart], { type: 'application/pdf' });
       const url = URL.createObjectURL(blob);
@@ -856,7 +879,8 @@ export default function CambioPlan() {
       a.download = `solicitud_igualdad_${kardex.estudiante.codigo ?? 'alumno'}_${fecha}.pdf`;
       a.click();
       URL.revokeObjectURL(url);
-      guardarFolio(folio);
+      await guardarFolio(folio);
+      setFolioActual(folio);
     } catch (err) {
       setPdfError((err as Error).message);
     } finally {
@@ -1469,7 +1493,7 @@ export default function CambioPlan() {
 
         {kardex && (
           <div style={{ marginTop: 14, fontSize: 12, color: '#6b7280' }}>
-            El PDF incluirá: folio <strong>{leerFolio() + 1}</strong> ·{' '}
+            El PDF incluirá: folio <strong>{folioActual + 1}</strong> ·{' '}
             <strong>{totalEquivalentes}</strong> equivalencias ·{' '}
             alumno <strong>{kardex.estudiante.nombre}</strong> ({kardex.estudiante.codigo})
           </div>

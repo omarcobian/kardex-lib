@@ -121,17 +121,16 @@ export default function EstadisticasPage() {
 
   useEffect(() => {
     setMounted(true);
-    try {
-      const raw = localStorage.getItem('cambio_plan_conteo_pendientes');
-      if (raw) setConteo(JSON.parse(raw) as ConteoStorage);
-      setFolio(parseInt(localStorage.getItem('folio_solicitudes') ?? '0', 10) || 0);
-      const rawD = localStorage.getItem('cambio_plan_demanda');
-      if (rawD) setDemanda(JSON.parse(rawD) as Record<string, DemandaEntry>);
-      const rawF = localStorage.getItem('materias_faltantes_global');
-      if (rawF) setFaltantesGlobal(JSON.parse(rawF) as Record<string, FaltantesGlobalEntry>);
-    } catch {
-      // localStorage not available
-    }
+
+    fetch('/api/storage')
+      .then(r => r.json())
+      .then((all: Record<string, unknown>) => {
+        if (all.conteo) setConteo(all.conteo as ConteoStorage);
+        if (all.folios != null) setFolio(all.folios as number);
+        if (all.demanda) setDemanda(all.demanda as Record<string, DemandaEntry>);
+        if (all.faltantes_global) setFaltantesGlobal(all.faltantes_global as Record<string, FaltantesGlobalEntry>);
+      })
+      .catch(() => {});
 
     fetch('/api/leer-datos-plan')
       .then(r => r.json())
@@ -154,11 +153,8 @@ export default function EstadisticasPage() {
   const faltantesOrdenadas = Object.entries(faltantesGlobal)
     .sort(([, a], [, b]) => b.alumnos.length - a.alumnos.length);
 
-  const handleClear = () => {
-    localStorage.removeItem('cambio_plan_conteo_pendientes');
-    localStorage.removeItem('folio_solicitudes');
-    localStorage.removeItem('cambio_plan_demanda');
-    localStorage.removeItem('materias_faltantes_global');
+  const handleClear = async () => {
+    await fetch('/api/storage', { method: 'DELETE' });
     setConteo(null);
     setFolio(0);
     setDemanda({});
@@ -215,7 +211,7 @@ export default function EstadisticasPage() {
           Panel de Seguimiento
         </h1>
         <p style={{ margin: 0, color: '#6b7280', fontSize: 14 }}>
-          Visualización de los datos guardados en el navegador · localStorage
+          Visualización de los datos almacenados en el servidor
         </p>
       </div>
 
@@ -233,7 +229,7 @@ export default function EstadisticasPage() {
       {cleared && (
         <div style={{ ...card, background: '#ecfdf5', border: '1px solid #6ee7b7' }}>
           <p style={{ margin: 0, color: '#065f46', fontSize: 14 }}>
-            Datos borrados correctamente del localStorage.
+            Datos borrados correctamente del servidor.
           </p>
         </div>
       )}
@@ -574,18 +570,18 @@ export default function EstadisticasPage() {
         </div>
       )}
 
-      {/* ── Sección 6 — Datos crudos del localStorage ───────────────────────── */}
+      {/* ── Sección 6 — Datos crudos del almacenamiento ────────────────────── */}
       <div style={card}>
-        <h2 style={sectionTitle}>Datos en el Almacenamiento Local</h2>
+        <h2 style={sectionTitle}>Datos en el Servidor</h2>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
           {[
             {
-              key: 'cambio_plan_conteo_pendientes',
+              key: 'conteo.json',
               label: 'Conteo de materias pendientes',
               value: conteo ? JSON.stringify(conteo, null, 2) : null,
             },
             {
-              key: 'folio_solicitudes',
+              key: 'folios.json',
               label: 'Folio de solicitudes',
               value: folio > 0 ? String(folio) : null,
             },
