@@ -118,15 +118,15 @@
       "destino": { "clave": "V5914", "nombre": "Procesamiento de bioimágenes", "creditos": 8 }
     },
     {
-      "origen": { "clave": "ET356", "nombre": "Temas Selectos de Ingeniería Biomédica I", "creditos": 0 },
+      "origen": { "clave": "ET356", "nombre": "Temas Selectos de Ingeniería Biomédica I", "creditos": 6 },
       "destino": { "clave": "V5908", "nombre": "Procesos y organización biológica", "creditos": 8 }
     },
     {
-      "origen": { "clave": "ET353", "nombre": "Topicos de Ingeniería Biomédica IV", "creditos": 0 },
+      "origen": { "clave": "ET353", "nombre": "Topicos de Ingeniería Biomédica IV", "creditos": 6 },
       "destino": { "clave": "IL361", "nombre": "Fundamentos de inteligencia artificial", "creditos": 8 }
     },
     {
-      "origen": { "clave": "ET353", "nombre": "Topicos de Ingeniería Biomédica IV", "creditos": 0 },
+      "origen": { "clave": "ET353", "nombre": "Topicos de Ingeniería Biomédica IV", "creditos": 6 },
       "destino": { "clave": "IL361", "nombre": "Fundamentos de inteligencia artificial", "creditos": 8 }
     },
     {
@@ -134,11 +134,11 @@
       "destino": { "clave": "V3929", "nombre": "Electrónica digital", "creditos": 8 }
     },
     {
-      "origen": { "clave": "ET340", "nombre": "Topicos de Ingeniería Biomédica", "creditos": 0 },
+      "origen": { "clave": "ET340", "nombre": "Topicos de Ingeniería Biomédica", "creditos": 9 },
       "destino": { "clave": "V5907", "nombre": "Estructuras de los sistemas biológicos", "creditos": 8 }
     },
     {
-      "origen": { "clave": "ET333", "nombre": "Instrumentación Médica II", "creditos": 0 },
+      "origen": { "clave": "ET333", "nombre": "Instrumentación Médica II", "creditos": 14 },
       "destino": { "clave": "V3866", "nombre": "Regulación de biomateriales", "creditos": 8 }
     }
   ],
