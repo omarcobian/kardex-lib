@@ -350,6 +350,19 @@ function guardarDemanda(d: Record<string, DemandaEntry>) {
   localStorage.setItem('cambio_plan_demanda', JSON.stringify(d));
 }
 
+type FaltantesGlobalEntry = { nombre: string; creditos: number; alumnos: string[] };
+
+function leerFaltantesGlobal(): Record<string, FaltantesGlobalEntry> {
+  try {
+    const raw = localStorage.getItem('materias_faltantes_global');
+    return raw ? (JSON.parse(raw) as Record<string, FaltantesGlobalEntry>) : {};
+  } catch { return {}; }
+}
+
+function guardarFaltantesGlobal(d: Record<string, FaltantesGlobalEntry>) {
+  localStorage.setItem('materias_faltantes_global', JSON.stringify(d));
+}
+
 function leerConteo(): ConteoStorage | null {
   try {
     const raw = localStorage.getItem('cambio_plan_conteo_pendientes');
@@ -776,6 +789,23 @@ export default function CambioPlan() {
       if (demanda[k].alumnos.length === 0) delete demanda[k];
     }
     guardarDemanda(demanda);
+
+    // Contador global de materias faltantes (TODAS, sin límite de NC)
+    const todasPendientes = planData.planLib.materias.filter(
+      m => !new Set(filas.filter(f => f.lib && (f.estado === 'verde' || f.estado === 'amarillo')).map(f => f.lib!.clave)).has(m.clave),
+    );
+    const faltantes = leerFaltantesGlobal();
+    for (const entry of Object.values(faltantes)) {
+      entry.alumnos = entry.alumnos.filter(a => a !== codigo);
+    }
+    for (const m of todasPendientes) {
+      if (!faltantes[m.clave]) faltantes[m.clave] = { nombre: m.nombre, creditos: m.creditos, alumnos: [] };
+      if (!faltantes[m.clave].alumnos.includes(codigo)) faltantes[m.clave].alumnos.push(codigo);
+    }
+    for (const k of Object.keys(faltantes)) {
+      if (faltantes[k].alumnos.length === 0) delete faltantes[k];
+    }
+    guardarFaltantesGlobal(faltantes);
   }, [kardex, planData, filasActivas]);
 
   // ── Edición manual: eliminar / agregar fila ───────────────────────────────────

@@ -16,6 +16,8 @@ type ConteoStorage = {
 
 type DemandaEntry = { nombre: string; creditos: number; alumnos: string[] };
 
+type FaltantesGlobalEntry = { nombre: string; creditos: number; alumnos: string[] };
+
 // ─── Donut Chart (SVG) ────────────────────────────────────────────────────────
 
 function DonutChart({ covered, pending }: { covered: number; pending: number }) {
@@ -110,6 +112,7 @@ function InfoCard({
 export default function EstadisticasPage() {
   const [conteo, setConteo] = useState<ConteoStorage | null>(null);
   const [demanda, setDemanda] = useState<Record<string, DemandaEntry>>({});
+  const [faltantesGlobal, setFaltantesGlobal] = useState<Record<string, FaltantesGlobalEntry>>({});
   const [folio, setFolio] = useState(0);
   const [totalLib, setTotalLib] = useState<number | null>(null);
   const [mounted, setMounted] = useState(false);
@@ -124,6 +127,8 @@ export default function EstadisticasPage() {
       setFolio(parseInt(localStorage.getItem('folio_solicitudes') ?? '0', 10) || 0);
       const rawD = localStorage.getItem('cambio_plan_demanda');
       if (rawD) setDemanda(JSON.parse(rawD) as Record<string, DemandaEntry>);
+      const rawF = localStorage.getItem('materias_faltantes_global');
+      if (rawF) setFaltantesGlobal(JSON.parse(rawF) as Record<string, FaltantesGlobalEntry>);
     } catch {
       // localStorage not available
     }
@@ -137,7 +142,7 @@ export default function EstadisticasPage() {
   if (!mounted) return null;
 
   const covered = totalLib != null && conteo != null ? totalLib - conteo.total : null;
-  const hasDatos = conteo !== null || folio > 0 || Object.keys(demanda).length > 0;
+  const hasDatos = conteo !== null || folio > 0 || Object.keys(demanda).length > 0 || Object.keys(faltantesGlobal).length > 0;
 
   const filteredMaterias = conteo?.materias.filter(m =>
     m.nombre.toLowerCase().includes(searchQuery.toLowerCase())
@@ -146,13 +151,18 @@ export default function EstadisticasPage() {
   const demandaOrdenada = Object.entries(demanda)
     .sort(([, a], [, b]) => b.alumnos.length - a.alumnos.length);
 
+  const faltantesOrdenadas = Object.entries(faltantesGlobal)
+    .sort(([, a], [, b]) => b.alumnos.length - a.alumnos.length);
+
   const handleClear = () => {
     localStorage.removeItem('cambio_plan_conteo_pendientes');
     localStorage.removeItem('folio_solicitudes');
     localStorage.removeItem('cambio_plan_demanda');
+    localStorage.removeItem('materias_faltantes_global');
     setConteo(null);
     setFolio(0);
     setDemanda({});
+    setFaltantesGlobal({});
     setCleared(true);
   };
 
@@ -510,7 +520,61 @@ export default function EstadisticasPage() {
         </div>
       )}
 
-      {/* ── Sección 5 — Datos crudos del localStorage ───────────────────────── */}
+      {/* ── Sección 5 — Contador global de materias faltantes ──────────────── */}
+      {faltantesOrdenadas.length > 0 && (
+        <div style={card}>
+          <h2 style={sectionTitle}>
+            Materias Faltantes — Contador Global
+            <span style={{ marginLeft: 8, fontSize: 12, fontWeight: 400, color: '#6b7280' }}>
+              ({faltantesOrdenadas.length} materias · {new Set(faltantesOrdenadas.flatMap(([, e]) => e.alumnos)).size} alumnos procesados)
+            </span>
+          </h2>
+          <p style={{ margin: '0 0 16px', fontSize: 13, color: '#6b7280' }}>
+            Cada vez que se sube un kardex, se contabilizan <strong>todas</strong> las materias que le faltan al alumno.
+            Este contador muestra qué materias son las más faltantes y a cuántas personas les falta cada una.
+          </p>
+          <div style={{ overflowX: 'auto' }}>
+            <table style={{ borderCollapse: 'collapse', width: '100%' }}>
+              <thead>
+                <tr>
+                  <th style={{ ...th, width: 36 }}>#</th>
+                  <th style={th}>Materia del Plan LIB</th>
+                  <th style={{ ...th, width: 60, textAlign: 'center' as const }}>NC</th>
+                  <th style={{ ...th, width: 110, textAlign: 'center' as const }}>Personas que les falta</th>
+                  <th style={th}>Alumnos</th>
+                </tr>
+              </thead>
+              <tbody>
+                {faltantesOrdenadas.map(([clave, entry], i) => (
+                  <tr key={clave} style={{ background: i % 2 === 0 ? '#fff' : '#f9fafb' }}>
+                    <td style={{ ...tdStyle, color: '#9ca3af', fontWeight: 700 }}>{i + 1}</td>
+                    <td style={tdStyle}>{entry.nombre}</td>
+                    <td style={{ ...tdStyle, textAlign: 'center' as const, color: '#6b7280' }}>{entry.creditos}</td>
+                    <td style={{ ...tdStyle, textAlign: 'center' as const }}>
+                      <span style={{
+                        display: 'inline-block',
+                        padding: '2px 10px',
+                        background: entry.alumnos.length >= 5 ? '#fee2e2' : entry.alumnos.length >= 3 ? '#fef9c3' : '#dbeafe',
+                        color: entry.alumnos.length >= 5 ? '#991b1b' : entry.alumnos.length >= 3 ? '#713f12' : '#1e40af',
+                        borderRadius: 12,
+                        fontSize: 13,
+                        fontWeight: 800,
+                      }}>
+                        {entry.alumnos.length}
+                      </span>
+                    </td>
+                    <td style={{ ...tdStyle, color: '#6b7280', fontSize: 11 }}>
+                      {entry.alumnos.join(', ')}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {/* ── Sección 6 — Datos crudos del localStorage ───────────────────────── */}
       <div style={card}>
         <h2 style={sectionTitle}>Datos en el Almacenamiento Local</h2>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
