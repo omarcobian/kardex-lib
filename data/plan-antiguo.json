@@ -44,10 +44,10 @@
     { "clave": "I7608",  "nombre": "Procesamiento de Bioseñales",                               "creditos": 8, "semestre": 8 },
     { "clave": "I7609",  "nombre": "Procesamiento de Bioimágenes",                              "creditos": 8, "semestre": 8 },
     { "clave": "PRAC",   "nombre": "Carta de Liberación de Prácticas Profesionales o Comprobantes de experiencia profesional (320 Hrs)", "creditos": 0, "semestre": 8 },
-    { "clave": "ET356",  "nombre": "Temas Selectos de Ingeniería Biomédica I",                  "creditos": 6, "semestre": 0 },
-    { "clave": "ET353",  "nombre": "Topicos de Ingeniería Biomédica IV",                        "creditos": 6, "semestre": 0 },
-    { "clave": "5541",  "nombre": "Instrumentación Médica IV",                                 "creditos": 14, "semestre": 0 },
-    { "clave": "72273",   "nombre": "Topicos de Ingeniería Biomédica",                           "creditos": 9, "semestre": 0 },
-    { "clave": "78949",  "nombre": "Instrumentación Médica II",                                 "creditos": 14, "semestre": 0 }
+    { "clave": "ET356",  "nombre": "Temas Selectos de Ingeniería Biomédica I",                  "creditos": 6, "semestre": 7 },
+    { "clave": "ET353",  "nombre": "Topicos de Ingeniería Biomédica IV",                        "creditos": 6, "semestre": 7 },
+    { "clave": "5541",  "nombre": "Instrumentación Médica IV",                                 "creditos": 14, "semestre": 7 },
+    { "clave": "72273",   "nombre": "Topicos de Ingeniería Biomédica",                           "creditos": 9, "semestre": 7 },
+    { "clave": "78949",  "nombre": "Instrumentación Médica II",                                 "creditos": 14, "semestre": 7 }
   ]
 }
